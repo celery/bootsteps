@@ -45,3 +45,25 @@ def test_blueprint_container_dependencies_graph():
         (mock_step3, mock_step1),
         (mock_step3, mock_step2)
     ]
+
+
+def test_blueprint_container_dependencies_graph_with_two_last_steps():
+    mock_step1 = Mock(name="step1")
+    mock_step1.requires = []
+    mock_step1.last = True
+
+    mock_step2 = Mock(name="step2")
+    mock_step2.requires = [mock_step1]
+    mock_step2.last = False
+
+    mock_step3 = Mock(name="step3")
+    mock_step3.requires = []
+    mock_step3.last = True
+
+    mock_bootsteps = [mock_step1, mock_step2, mock_step3]
+
+    class MyBlueprintContainer(BlueprintContainer):
+        bootsteps = mock_bootsteps
+
+    with pytest.raises(ValueError, match='Only one boot step can be last. Found 2.'):
+        MyBlueprintContainer.blueprint
