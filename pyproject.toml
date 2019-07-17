@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "bootsteps"
+version = "0.1.0"
+
+license = "BSD-3-Clause"
+
+authors = [
+    "Omer Katz <omer.drow@gmail.com>"
+]
+
+[tool.poetry.dependencies]
+python = ">=3.5"
+networkx = "=2.3"
+trio = "=0.11"
+attrs = "=19.1"
+eliot = "=1.9"
+dependencies = { git = "git@github.com:thedrow/dependencies.git", branch = "poetry-python-minimum-version" }
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.0"
+pytest-trio = "*"
+tox = "^3.12"
+pycodestyle = "*"
+isort = "*"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
