@@ -22,18 +22,26 @@ def test_init(bootsteps_graph):
 
 
 def test_blueprint_container_dependencies_graph():
-    mock_step1 = Mock()
+    mock_step1 = Mock(name="step1")
     mock_step1.requires = []
+    mock_step1.last = False
 
-    mock_step2 = Mock()
+    mock_step2 = Mock(name="step2")
     mock_step2.requires = [mock_step1]
+    mock_step2.last = False
 
-    mock_bootsteps = [mock_step1, mock_step2]
+    mock_step3 = Mock(name="step3")
+    mock_step3.requires = []
+    mock_step3.last = True
+
+    mock_bootsteps = [mock_step1, mock_step2, mock_step3]
 
     class MyBlueprintContainer(BlueprintContainer):
         bootsteps = mock_bootsteps
 
     assert list(MyBlueprintContainer.blueprint.steps.nodes) == mock_bootsteps
     assert list(MyBlueprintContainer.blueprint.steps.edges) == [
-        (mock_step2, mock_step1)
+        (mock_step2, mock_step1),
+        (mock_step3, mock_step1),
+        (mock_step3, mock_step2)
     ]

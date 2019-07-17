@@ -46,8 +46,19 @@ class BlueprintContainer(Injector):
     @value
     def steps(bootsteps):
         """Initialize a directed acyclic graph of steps."""
-        return DiGraph({
+        graph = DiGraph({
             bootstep: bootstep.requires for bootstep in bootsteps
         })
+
+        try:
+            last = next(bootstep for bootstep in bootsteps if bootstep.last)
+        except StopIteration:
+            pass
+        else:
+            for bootstep in graph:
+                if bootstep != last:
+                    graph.add_edge(last, bootstep)
+
+        return graph
 
     blueprint = Blueprint

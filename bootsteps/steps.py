@@ -9,3 +9,4 @@ class Step:
     """A step in the initialization process of the program."""
 
     requires: typing.List['Step']
+    last: bool = False
