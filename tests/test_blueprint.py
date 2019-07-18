@@ -58,7 +58,7 @@ def test_blueprint_container_dependencies_graph(logger):
     assert logged_action.end_message['action_status'] == 'succeeded'
 
 
-def test_blueprint_container_dependencies_graph_with_two_last_steps():
+def test_blueprint_container_dependencies_graph_with_two_last_steps(logger):
     mock_step1 = Mock(name="step1", spec=Step)
     mock_step1.requires = []
     mock_step1.last = True
@@ -79,8 +79,16 @@ def test_blueprint_container_dependencies_graph_with_two_last_steps():
     with pytest.raises(ValueError, match='Only one boot step can be last. Found 2.'):
         MyBlueprintContainer.blueprint
 
+    logged_actions = LoggedAction.of_type(logger.messages, 'bootsteps:blueprint:building_dependency_graph')
+    logged_action = logged_actions[0]
+    assert ('name' in logged_action.start_message
+            and logged_action.start_message['name'] == MyBlueprintContainer.name)
+    assert logged_action.end_message['action_status'] == 'failed'
+    assert logged_action.end_message['reason'] == 'Only one boot step can be last. Found 2.'
+    assert logged_action.end_message['exception'] == 'builtins.ValueError'
 
-def test_blueprint_container_dependencies_graph_with_circular_dependencies():
+
+def test_blueprint_container_dependencies_graph_with_circular_dependencies(logger):
     mock_step2 = Mock(name="step2", spec=Step)
     mock_step1 = Mock(name="step1", spec=Step)
 
@@ -97,3 +105,11 @@ def test_blueprint_container_dependencies_graph_with_circular_dependencies():
 
     with pytest.raises(ValueError, match='Circular dependencies found.'):
         MyBlueprintContainer.blueprint
+
+    logged_actions = LoggedAction.of_type(logger.messages, 'bootsteps:blueprint:building_dependency_graph')
+    logged_action = logged_actions[0]
+    assert ('name' in logged_action.start_message
+            and logged_action.start_message['name'] == MyBlueprintContainer.name)
+    assert logged_action.end_message['action_status'] == 'failed'
+    assert logged_action.end_message['reason'] == 'Circular dependencies found.'
+    assert logged_action.end_message['exception'] == 'builtins.ValueError'
