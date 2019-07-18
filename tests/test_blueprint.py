@@ -1,10 +1,9 @@
 from unittest.mock import Mock
 
-from eliot.testing import assertContainsFields, LoggedAction
 import pytest
 from networkx import DiGraph
 
-from bootsteps import Blueprint, BlueprintContainer
+from bootsteps import Blueprint, BlueprintContainer, Step
 from bootsteps.blueprint import BlueprintState
 
 
@@ -22,15 +21,15 @@ def test_init(bootsteps_graph):
 
 
 def test_blueprint_container_dependencies_graph():
-    mock_step1 = Mock(name="step1")
+    mock_step1 = Mock(name="step1", spec=Step)
     mock_step1.requires = []
     mock_step1.last = False
 
-    mock_step2 = Mock(name="step2")
+    mock_step2 = Mock(name="step2", spec=Step)
     mock_step2.requires = [mock_step1]
     mock_step2.last = False
 
-    mock_step3 = Mock(name="step3")
+    mock_step3 = Mock(name="step3", spec=Step)
     mock_step3.requires = []
     mock_step3.last = True
 
@@ -48,15 +47,15 @@ def test_blueprint_container_dependencies_graph():
 
 
 def test_blueprint_container_dependencies_graph_with_two_last_steps():
-    mock_step1 = Mock(name="step1")
+    mock_step1 = Mock(name="step1", spec=Step)
     mock_step1.requires = []
     mock_step1.last = True
 
-    mock_step2 = Mock(name="step2")
+    mock_step2 = Mock(name="step2", spec=Step)
     mock_step2.requires = [mock_step1]
     mock_step2.last = False
 
-    mock_step3 = Mock(name="step3")
+    mock_step3 = Mock(name="step3", spec=Step)
     mock_step3.requires = []
     mock_step3.last = True
 
@@ -66,4 +65,23 @@ def test_blueprint_container_dependencies_graph_with_two_last_steps():
         bootsteps = mock_bootsteps
 
     with pytest.raises(ValueError, match='Only one boot step can be last. Found 2.'):
+        MyBlueprintContainer.blueprint
+
+
+def test_blueprint_container_dependencies_graph_with_circular_dependencies():
+    mock_step2 = Mock(name="step2", spec=Step)
+    mock_step1 = Mock(name="step1", spec=Step)
+
+    mock_step1.requires = [mock_step2]
+    mock_step1.last = True
+
+    mock_step2.requires = [mock_step1]
+    mock_step2.last = False
+
+    mock_bootsteps = [mock_step1, mock_step2]
+
+    class MyBlueprintContainer(BlueprintContainer):
+        bootsteps = mock_bootsteps
+
+    with pytest.raises(ValueError, match='Circular dependencies found.'):
         MyBlueprintContainer.blueprint

@@ -1,6 +1,6 @@
 import pytest
 from eliot import MemoryLogger
-from eliot.testing import swap_logger, check_for_errors
+from eliot.testing import check_for_errors, swap_logger
 
 
 @pytest.fixture(autouse=True)
