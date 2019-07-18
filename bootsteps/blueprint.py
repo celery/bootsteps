@@ -107,12 +107,14 @@ class Blueprint:
             while steps.order():
                 if not steps_without_dependencies:
                     most_dependent_steps = max(strongly_connected_components(steps))
+                    # TODO: Add an assert that ensures this message is emitted
                     NEXT_BOOTSTEPS.log(name=self.name, next_bootsteps=most_dependent_steps)
                     yield most_dependent_steps
                     steps.remove_nodes_from(most_dependent_steps)
                     execution_order.extend(most_dependent_steps)
                     steps_without_dependencies = list(isolates(steps))
                 else:
+                    # TODO: Add an assert that ensures this message is emitted
                     NEXT_BOOTSTEPS.log(name=self.name, next_bootsteps=steps_without_dependencies)
                     yield steps_without_dependencies
                     steps.remove_nodes_from(steps_without_dependencies)
