@@ -9,7 +9,7 @@ from enum import Enum
 import attr
 from cached_property import cached_property
 from dependencies import Injector, value
-from eliot import ActionType, Field
+from eliot import ActionType, Field, MessageType
 from networkx import (DiGraph, is_directed_acyclic_graph, isolates,
                       strongly_connected_components)
 from networkx.readwrite import json_graph
@@ -56,6 +56,14 @@ RESOLVING_BOOTSTEPS_EXECUTION_ORDER = ActionType(
     ]
 )
 
+NEXT_BOOTSTEPS = MessageType(
+    "bootsteps:blueprint:next_bootsteps",
+    [
+        Field("name", str, "The name of the blueprint"),
+        Field("next_bootsteps", lambda steps: [repr(s) for s in steps])
+    ]
+)
+
 
 class BlueprintState(Enum):
     """An enum represeting the different lifecycle stages of a Blueprint."""
@@ -99,11 +107,13 @@ class Blueprint:
             while steps.order():
                 if not steps_without_dependencies:
                     most_dependent_steps = max(strongly_connected_components(steps))
+                    NEXT_BOOTSTEPS.log(name=self.name, next_bootsteps=most_dependent_steps)
                     yield most_dependent_steps
                     steps.remove_nodes_from(most_dependent_steps)
                     execution_order.extend(most_dependent_steps)
                     steps_without_dependencies = list(isolates(steps))
                 else:
+                    NEXT_BOOTSTEPS.log(name=self.name, next_bootsteps=steps_without_dependencies)
                     yield steps_without_dependencies
                     steps.remove_nodes_from(steps_without_dependencies)
                     execution_order.extend(steps_without_dependencies)
