@@ -7,9 +7,10 @@ All non-dependent Bootsteps will be executed in parallel.
 from enum import Enum
 
 import attr
+from cached_property import cached_property
 from dependencies import Injector, value
 from eliot import ActionType, Field
-from networkx import DiGraph, is_directed_acyclic_graph
+from networkx import DiGraph, is_directed_acyclic_graph, topological_sort
 from networkx.readwrite import json_graph
 
 from bootsteps.steps import Step
@@ -62,9 +63,15 @@ class Blueprint:
 
     def start(self):
         """Start executing the blueprint."""
+        for step in reversed(self._ordered_steps):
+            step()
 
     def stop(self):
         """Stop the blueprint."""
+
+    @cached_property
+    def _ordered_steps(self):
+        return tuple(topological_sort(self.steps))
 
 
 class BlueprintContainer(Injector):

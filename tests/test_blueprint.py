@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 from eliot.testing import LoggedAction
@@ -113,3 +113,34 @@ def test_blueprint_container_dependencies_graph_with_circular_dependencies(logge
     assert logged_action.end_message['action_status'] == 'failed'
     assert logged_action.end_message['reason'] == 'Circular dependencies found.'
     assert logged_action.end_message['exception'] == 'builtins.ValueError'
+
+
+def test_start():
+    # We're using a parent mock simply to record the order of calls to different
+    # steps
+    m = Mock()
+
+    mock_step1 = Mock(name="step1", spec=Step)
+    mock_step1.requires = []
+    mock_step1.last = False
+
+    mock_step2 = Mock(name="step2", spec=Step)
+    mock_step2.requires = [mock_step1]
+    mock_step2.last = False
+
+    mock_step3 = Mock(name="step3", spec=Step)
+    mock_step3.requires = []
+    mock_step3.last = True
+
+    m.attach_mock(mock_step1, 'mock_step1')
+    m.attach_mock(mock_step2, 'mock_step2')
+    m.attach_mock(mock_step3, 'mock_step3')
+
+    mock_bootsteps = [m.mock_step1, m.mock_step2, m.mock_step3]
+
+    class MyBlueprintContainer(BlueprintContainer):
+        bootsteps = mock_bootsteps
+
+    MyBlueprintContainer.blueprint.start()
+
+    m.assert_has_calls([call.mock_step1, call.mock_step2, call.mock_step3])
