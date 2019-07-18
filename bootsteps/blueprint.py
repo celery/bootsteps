@@ -40,6 +40,21 @@ BUILDING_DEPENDENCY_GRAPH = ActionType(
     [Field("name", str, "The name of the blueprint"), Field("graph", _serialize_graph, "The resulting graph")]
 )
 
+START_BLUEPRINT = ActionType(
+    "bootsteps:blueprint:start",
+    [Field("name", str, "The name of the blueprint")],
+    []
+)
+
+RESOLVING_BOOTSTEPS_EXECUTION_ORDER = ActionType(
+    "bootsteps:blueprint:resolving_bootsteps_execution_order",
+    [Field("name", str, "The name of the blueprint")],
+    [
+        Field("name", str, "The name of the blueprint"),
+        Field("bootsteps_execution_order", lambda steps: [repr(s) for s in steps])
+    ]
+)
+
 
 class BlueprintState(Enum):
     """An enum represeting the different lifecycle stages of a Blueprint."""
@@ -63,15 +78,21 @@ class Blueprint:
 
     def start(self):
         """Start executing the blueprint."""
-        for step in reversed(self._ordered_steps):
-            step()
+        with START_BLUEPRINT.as_task(name=self.name):
+            for step in self._ordered_steps:
+                step()
 
     def stop(self):
         """Stop the blueprint."""
 
     @cached_property
     def _ordered_steps(self):
-        return tuple(topological_sort(self.steps))
+        with RESOLVING_BOOTSTEPS_EXECUTION_ORDER(name=self.name) as action:
+            execution_order = list(topological_sort(self.steps))
+            execution_order.reverse()
+            action.addSuccessFields(name=self.name, bootsteps_execution_order=execution_order)
+
+        return execution_order
 
 
 class BlueprintContainer(Injector):

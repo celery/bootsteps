@@ -115,7 +115,7 @@ def test_blueprint_container_dependencies_graph_with_circular_dependencies(logge
     assert logged_action.end_message['exception'] == 'builtins.ValueError'
 
 
-def test_start():
+def test_start(logger):
     # We're using a parent mock simply to record the order of calls to different
     # steps
     m = Mock()
@@ -144,3 +144,21 @@ def test_start():
     MyBlueprintContainer.blueprint.start()
 
     m.assert_has_calls([call.mock_step1, call.mock_step2, call.mock_step3])
+
+    logged_tasks = LoggedAction.of_type(logger.messages, 'bootsteps:blueprint:start')
+    logged_task = logged_tasks[0]
+    assert ('name' in logged_task.start_message
+            and logged_task.start_message['name'] == MyBlueprintContainer.blueprint.name)
+    assert logged_task.end_message['action_status'] == 'succeeded'
+
+    logged_actions = LoggedAction.of_type(logger.messages,
+                                         'bootsteps:blueprint:resolving_bootsteps_execution_order')
+    assert logged_task.children == logged_actions
+    logged_action = logged_actions[0]
+    assert ('name' in logged_action.start_message
+            and logged_action.start_message['name'] == MyBlueprintContainer.blueprint.name)
+    assert logged_action.end_message['action_status'] == 'succeeded'
+    assert ('name' in logged_action.end_message
+            and logged_action.end_message['name'] == MyBlueprintContainer.blueprint.name)
+    assert ('bootsteps_execution_order' in logged_action.end_message
+            and logged_action.end_message['bootsteps_execution_order'] == mock_bootsteps)
