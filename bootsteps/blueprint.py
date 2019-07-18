@@ -36,7 +36,7 @@ def _serialize_graph(graph):
 BUILDING_DEPENDENCY_GRAPH = ActionType(
     "bootsteps:blueprint:building_dependency_graph",
     [Field("name", str, "The name of the blueprint")],
-    [Field("graph", _serialize_graph, "The resulting graph")]
+    [Field("name", str, "The name of the blueprint"), Field("graph", _serialize_graph, "The resulting graph")]
 )
 
 
@@ -97,7 +97,7 @@ class BlueprintContainer(Injector):
             if not is_directed_acyclic_graph(graph):
                 raise ValueError("Circular dependencies found.")
 
-            action.addSuccessFields(graph=graph)
+            action.addSuccessFields(name=name, graph=graph)
 
         return graph
 

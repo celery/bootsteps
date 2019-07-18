@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
+from eliot.testing import LoggedAction
 from networkx import DiGraph
 
 from bootsteps import Blueprint, BlueprintContainer, Step
@@ -20,7 +21,7 @@ def test_init(bootsteps_graph):
     assert b.state == BlueprintState.INITIALIZED
 
 
-def test_blueprint_container_dependencies_graph():
+def test_blueprint_container_dependencies_graph(logger):
     mock_step1 = Mock(name="step1", spec=Step)
     mock_step1.requires = []
     mock_step1.last = False
@@ -44,6 +45,17 @@ def test_blueprint_container_dependencies_graph():
         (mock_step3, mock_step1),
         (mock_step3, mock_step2)
     ]
+
+    logged_actions = LoggedAction.of_type(logger.messages, 'bootsteps:blueprint:building_dependency_graph')
+    logged_action = logged_actions[0]
+    assert ('name' in logged_action.start_message
+            and logged_action.start_message['name'] == MyBlueprintContainer.blueprint.name)
+    assert ('name' in logged_action.end_message
+            and logged_action.end_message['name'] == MyBlueprintContainer.blueprint.name)
+    assert ('graph' in logged_action.end_message
+            and logged_action.end_message['graph'].nodes == MyBlueprintContainer.blueprint.steps.nodes
+            and logged_action.end_message['graph'].edges == MyBlueprintContainer.blueprint.steps.edges)
+    assert logged_action.end_message['action_status'] == 'succeeded'
 
 
 def test_blueprint_container_dependencies_graph_with_two_last_steps():
