@@ -131,19 +131,16 @@ class BlueprintContainer(Injector):
     def steps(name, bootsteps):
         """Initialize a directed acyclic graph of steps."""
         with BUILDING_DEPENDENCY_GRAPH(name=name) as action:
-            last_bootsteps = sum(True for bootstep in bootsteps if bootstep.last)
-            if last_bootsteps > 1:
-                raise ValueError(f"Only one boot step can be last. Found {last_bootsteps}.")
+            last_bootsteps = [bootstep for bootstep in bootsteps if bootstep.last]
+            if len(last_bootsteps) > 1:
+                raise ValueError(f"Only one boot step can be last. Found {len(last_bootsteps)}.")
 
             graph = DiGraph({
                 bootstep: bootstep.requires for bootstep in bootsteps
             })
 
-            try:
-                last = next(bootstep for bootstep in bootsteps if bootstep.last)
-            except StopIteration:
-                pass
-            else:
+            if last_bootsteps:
+                last = last_bootsteps[0]
                 for bootstep in graph:
                     if bootstep != last:
                         graph.add_edge(last, bootstep)
