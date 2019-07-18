@@ -10,7 +10,8 @@ import attr
 from cached_property import cached_property
 from dependencies import Injector, value
 from eliot import ActionType, Field
-from networkx import DiGraph, is_directed_acyclic_graph, topological_sort, isolates, strongly_connected_components
+from networkx import (DiGraph, is_directed_acyclic_graph, isolates,
+                      strongly_connected_components)
 from networkx.readwrite import json_graph
 
 from bootsteps.steps import Step
