@@ -10,7 +10,7 @@ import attr
 from cached_property import cached_property
 from dependencies import Injector, value
 from eliot import ActionType, Field
-from networkx import DiGraph, is_directed_acyclic_graph, topological_sort
+from networkx import DiGraph, is_directed_acyclic_graph, topological_sort, isolates, strongly_connected_components
 from networkx.readwrite import json_graph
 
 from bootsteps.steps import Step
@@ -79,20 +79,35 @@ class Blueprint:
     def start(self):
         """Start executing the blueprint."""
         with START_BLUEPRINT.as_task(name=self.name):
-            for step in self._ordered_steps:
-                step()
+            for steps in self._ordered_steps:
+                for step in steps:
+                    step()
 
     def stop(self):
         """Stop the blueprint."""
 
-    @cached_property
+    @property
     def _ordered_steps(self):
+        # TODO: Rename this property
+        # TODO: Figure out how to paralelize boot steps when a last step is present
         with RESOLVING_BOOTSTEPS_EXECUTION_ORDER(name=self.name) as action:
-            execution_order = list(topological_sort(self.steps))
-            execution_order.reverse()
-            action.addSuccessFields(name=self.name, bootsteps_execution_order=execution_order)
+            execution_order = []
+            steps = self.steps.copy()
 
-        return execution_order
+            steps_without_dependencies = list(isolates(steps))
+            while steps.order():
+                if not steps_without_dependencies:
+                    most_dependent_steps = max(strongly_connected_components(steps))
+                    yield most_dependent_steps
+                    steps.remove_nodes_from(most_dependent_steps)
+                    execution_order.extend(most_dependent_steps)
+                    steps_without_dependencies = list(isolates(steps))
+                else:
+                    yield steps_without_dependencies
+                    steps.remove_nodes_from(steps_without_dependencies)
+                    execution_order.extend(steps_without_dependencies)
+                    steps_without_dependencies = None
+            action.addSuccessFields(name=self.name, bootsteps_execution_order=execution_order)
 
 
 class BlueprintContainer(Injector):
