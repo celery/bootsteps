@@ -11,8 +11,12 @@ import attr
 import trio
 from dependencies import Injector, value
 from eliot import ActionType, Field, MessageType
-from networkx import (DiGraph, is_directed_acyclic_graph, isolates,
-                      strongly_connected_components)
+from networkx import (
+    DiGraph,
+    is_directed_acyclic_graph,
+    isolates,
+    strongly_connected_components,
+)
 from networkx.readwrite import json_graph
 
 from bootsteps.steps import Step

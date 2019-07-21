@@ -13,6 +13,26 @@ def bootsteps_graph():
     return Mock(spec_set=DiGraph)
 
 
+def create_mock_step(name, requires=set(), required_by=set(), last=False):
+    mock_step = Mock(name=name, spec=Step)
+    mock_step.requires = requires
+    mock_step.required_by = required_by
+    mock_step.last = last
+
+    return mock_step
+
+
+def create_start_stop_mock_step(name, requires=set(), required_by=set(), last=False):
+    mock_step = NonCallableMock(name=name, spec=Step)
+    mock_step.requires = requires
+    mock_step.required_by = required_by
+    mock_step.last = last
+    mock_step.start = Mock()
+    mock_step.stop = Mock()
+
+    return mock_step
+
+
 def test_init(bootsteps_graph):
     b = Blueprint(bootsteps_graph, name="Test")
 
@@ -22,25 +42,10 @@ def test_init(bootsteps_graph):
 
 
 def test_blueprint_container_dependencies_graph(logger):
-    mock_step1 = Mock(name="step1", spec=Step)
-    mock_step1.requires = set()
-    mock_step1.required_by = set()
-    mock_step1.last = False
-
-    mock_step2 = Mock(name="step2", spec=Step)
-    mock_step2.requires = {mock_step1}
-    mock_step2.required_by = set()
-    mock_step2.last = False
-
-    mock_step3 = Mock(name="step3", spec=Step)
-    mock_step3.requires = set()
-    mock_step3.required_by = set()
-    mock_step3.last = True
-
-    mock_step4 = Mock(name="step4", spec=Step)
-    mock_step4.requires = set()
-    mock_step4.required_by = {mock_step2}
-    mock_step4.last = False
+    mock_step1 = create_mock_step("step1")
+    mock_step2 = create_mock_step("step2", requires={mock_step1})
+    mock_step3 = create_mock_step("step3", last=True)
+    mock_step4 = create_mock_step("step4", required_by={mock_step2})
 
     mock_bootsteps = [mock_step1, mock_step4, mock_step2, mock_step3]
 
@@ -79,20 +84,9 @@ def test_blueprint_container_dependencies_graph(logger):
 
 
 def test_blueprint_container_dependencies_graph_with_two_last_steps(logger):
-    mock_step1 = Mock(name="step1", spec=Step)
-    mock_step1.requires = set()
-    mock_step1.required_by = set()
-    mock_step1.last = True
-
-    mock_step2 = Mock(name="step2", spec=Step)
-    mock_step2.requires = {mock_step1}
-    mock_step2.required_by = set()
-    mock_step2.last = False
-
-    mock_step3 = Mock(name="step3", spec=Step)
-    mock_step3.requires = set()
-    mock_step3.required_by = set()
-    mock_step3.last = True
+    mock_step1 = create_mock_step("step1", last=True)
+    mock_step2 = create_mock_step("step2", requires={mock_step1})
+    mock_step3 = create_mock_step("step3", last=True)
 
     mock_bootsteps = [mock_step1, mock_step2, mock_step3]
 
@@ -119,6 +113,7 @@ def test_blueprint_container_dependencies_graph_with_two_last_steps(logger):
 
 
 def test_blueprint_container_dependencies_graph_with_circular_dependencies(logger):
+    # Can't use the create_mock_step helper here because of the circular dependency
     mock_step2 = Mock(name="step2", spec=Step)
     mock_step1 = Mock(name="step1", spec=Step)
 
@@ -156,30 +151,11 @@ async def test_start_without_last_step(logger):
     # steps
     m = Mock()
 
-    mock_step1 = Mock(name="step1", spec=Step)
-    mock_step1.requires = set()
-    mock_step1.required_by = set()
-    mock_step1.last = False
-
-    mock_step2 = Mock(name="step2", spec=Step)
-    mock_step2.requires = {mock_step1}
-    mock_step2.required_by = set()
-    mock_step2.last = False
-
-    mock_step3 = Mock(name="step3", spec=Step)
-    mock_step3.requires = {mock_step1}
-    mock_step3.required_by = set()
-    mock_step3.last = False
-
-    mock_step4 = Mock(name="step4", spec=Step)
-    mock_step4.requires = set()
-    mock_step4.required_by = set()
-    mock_step4.last = False
-
-    mock_step5 = Mock(name="step5", spec=Step)
-    mock_step5.requires = set()
-    mock_step5.required_by = set()
-    mock_step5.last = False
+    mock_step1 = create_mock_step("step1")
+    mock_step2 = create_mock_step("step2", requires={mock_step1})
+    mock_step3 = create_mock_step("step3", requires={mock_step1})
+    mock_step4 = create_mock_step("step4")
+    mock_step5 = create_mock_step("step5")
 
     m.attach_mock(mock_step1, "mock_step1")
     m.attach_mock(mock_step2, "mock_step2")
@@ -247,30 +223,11 @@ async def test_start_with_last_step(logger):
     # steps
     m = Mock()
 
-    mock_step1 = Mock(name="step1", spec=Step)
-    mock_step1.requires = set()
-    mock_step1.required_by = set()
-    mock_step1.last = False
-
-    mock_step2 = Mock(name="step2", spec=Step)
-    mock_step2.requires = {mock_step1}
-    mock_step2.required_by = set()
-    mock_step2.last = False
-
-    mock_step3 = Mock(name="step3", spec=Step)
-    mock_step3.requires = set()
-    mock_step3.required_by = set()
-    mock_step3.last = True
-
-    mock_step4 = Mock(name="step4", spec=Step)
-    mock_step4.requires = set()
-    mock_step4.required_by = set()
-    mock_step4.last = False
-
-    mock_step5 = Mock(name="step5", spec=Step)
-    mock_step5.requires = set()
-    mock_step5.required_by = set()
-    mock_step5.last = False
+    mock_step1 = create_mock_step("step1")
+    mock_step2 = create_mock_step("step2", requires={mock_step1})
+    mock_step3 = create_mock_step("step3", last=True)
+    mock_step4 = create_mock_step("step4")
+    mock_step5 = create_mock_step("step5")
 
     m.attach_mock(mock_step1, "mock_step1")
     m.attach_mock(mock_step2, "mock_step2")
@@ -330,11 +287,7 @@ async def test_start_with_last_step(logger):
 
 
 async def test_call_step_start():
-    mock_step1 = NonCallableMock(name="step1", spec=Step)
-    mock_step1.requires = set()
-    mock_step1.required_by = set()
-    mock_step1.last = False
-    mock_step1.start = Mock()
+    mock_step1 = create_start_stop_mock_step("step1")
 
     mock_bootsteps = {mock_step1}
 
