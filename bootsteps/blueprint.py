@@ -179,7 +179,11 @@ class BlueprintContainer(Injector):
                     f"Only one boot step can be last. Found {len(last_bootsteps)}."
                 )
 
-            graph = DiGraph({bootstep: bootstep.requires for bootstep in bootsteps})
+            dependencies = {bootstep: bootstep.requires for bootstep in bootsteps}
+            for bootstep in bootsteps:
+                for dependet_bootstep in bootstep.required_by:
+                    dependencies[dependet_bootstep].add(bootstep)
+            graph = DiGraph(dependencies)
 
             if last_bootsteps:
                 last = last_bootsteps[0]

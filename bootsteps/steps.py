@@ -8,5 +8,6 @@ import attr
 class Step:
     """A step in the initialization process of the program."""
 
-    requires: typing.List["Step"] = []
+    requires: typing.Set["Step"] = set()
+    required_by: typing.Set["Step"] = set()
     last: bool = False
