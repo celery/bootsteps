@@ -1,4 +1,4 @@
-from unittest.mock import NonCallableMock, Mock, call
+from unittest.mock import Mock, NonCallableMock, call
 
 import pytest
 from eliot.testing import LoggedAction
@@ -43,19 +43,29 @@ def test_blueprint_container_dependencies_graph(logger):
     assert list(MyBlueprintContainer.blueprint.steps.edges) == [
         (mock_step2, mock_step1),
         (mock_step3, mock_step1),
-        (mock_step3, mock_step2)
+        (mock_step3, mock_step2),
     ]
 
-    logged_actions = LoggedAction.of_type(logger.messages, 'bootsteps:blueprint:building_dependency_graph')
+    logged_actions = LoggedAction.of_type(
+        logger.messages, "bootsteps:blueprint:building_dependency_graph"
+    )
     logged_action = logged_actions[0]
-    assert ('name' in logged_action.start_message
-            and logged_action.start_message['name'] == MyBlueprintContainer.blueprint.name)
-    assert ('name' in logged_action.end_message
-            and logged_action.end_message['name'] == MyBlueprintContainer.blueprint.name)
-    assert ('graph' in logged_action.end_message
-            and logged_action.end_message['graph'].nodes == MyBlueprintContainer.blueprint.steps.nodes
-            and logged_action.end_message['graph'].edges == MyBlueprintContainer.blueprint.steps.edges)
-    assert logged_action.end_message['action_status'] == 'succeeded'
+    assert (
+        "name" in logged_action.start_message
+        and logged_action.start_message["name"] == MyBlueprintContainer.blueprint.name
+    )
+    assert (
+        "name" in logged_action.end_message
+        and logged_action.end_message["name"] == MyBlueprintContainer.blueprint.name
+    )
+    assert (
+        "graph" in logged_action.end_message
+        and logged_action.end_message["graph"].nodes
+        == MyBlueprintContainer.blueprint.steps.nodes
+        and logged_action.end_message["graph"].edges
+        == MyBlueprintContainer.blueprint.steps.edges
+    )
+    assert logged_action.end_message["action_status"] == "succeeded"
 
 
 def test_blueprint_container_dependencies_graph_with_two_last_steps(logger):
@@ -76,16 +86,23 @@ def test_blueprint_container_dependencies_graph_with_two_last_steps(logger):
     class MyBlueprintContainer(BlueprintContainer):
         bootsteps = mock_bootsteps
 
-    with pytest.raises(ValueError, match='Only one boot step can be last. Found 2.'):
+    with pytest.raises(ValueError, match="Only one boot step can be last. Found 2."):
         MyBlueprintContainer.blueprint
 
-    logged_actions = LoggedAction.of_type(logger.messages, 'bootsteps:blueprint:building_dependency_graph')
+    logged_actions = LoggedAction.of_type(
+        logger.messages, "bootsteps:blueprint:building_dependency_graph"
+    )
     logged_action = logged_actions[0]
-    assert ('name' in logged_action.start_message
-            and logged_action.start_message['name'] == MyBlueprintContainer.name)
-    assert logged_action.end_message['action_status'] == 'failed'
-    assert logged_action.end_message['reason'] == 'Only one boot step can be last. Found 2.'
-    assert logged_action.end_message['exception'] == 'builtins.ValueError'
+    assert (
+        "name" in logged_action.start_message
+        and logged_action.start_message["name"] == MyBlueprintContainer.name
+    )
+    assert logged_action.end_message["action_status"] == "failed"
+    assert (
+        logged_action.end_message["reason"]
+        == "Only one boot step can be last. Found 2."
+    )
+    assert logged_action.end_message["exception"] == "builtins.ValueError"
 
 
 def test_blueprint_container_dependencies_graph_with_circular_dependencies(logger):
@@ -103,19 +120,23 @@ def test_blueprint_container_dependencies_graph_with_circular_dependencies(logge
     class MyBlueprintContainer(BlueprintContainer):
         bootsteps = mock_bootsteps
 
-    with pytest.raises(ValueError, match='Circular dependencies found.'):
+    with pytest.raises(ValueError, match="Circular dependencies found."):
         MyBlueprintContainer.blueprint
 
-    logged_actions = LoggedAction.of_type(logger.messages, 'bootsteps:blueprint:building_dependency_graph')
+    logged_actions = LoggedAction.of_type(
+        logger.messages, "bootsteps:blueprint:building_dependency_graph"
+    )
     logged_action = logged_actions[0]
-    assert ('name' in logged_action.start_message
-            and logged_action.start_message['name'] == MyBlueprintContainer.name)
-    assert logged_action.end_message['action_status'] == 'failed'
-    assert logged_action.end_message['reason'] == 'Circular dependencies found.'
-    assert logged_action.end_message['exception'] == 'builtins.ValueError'
+    assert (
+        "name" in logged_action.start_message
+        and logged_action.start_message["name"] == MyBlueprintContainer.name
+    )
+    assert logged_action.end_message["action_status"] == "failed"
+    assert logged_action.end_message["reason"] == "Circular dependencies found."
+    assert logged_action.end_message["exception"] == "builtins.ValueError"
 
 
-def test_start_without_last_step(logger):
+async def test_start_without_last_step(logger):
     # We're using a parent mock simply to record the order of calls to different
     # steps
     m = Mock()
@@ -140,43 +161,68 @@ def test_start_without_last_step(logger):
     mock_step5.requires = []
     mock_step5.last = False
 
-    m.attach_mock(mock_step1, 'mock_step1')
-    m.attach_mock(mock_step2, 'mock_step2')
-    m.attach_mock(mock_step3, 'mock_step3')
-    m.attach_mock(mock_step4, 'mock_step4')
-    m.attach_mock(mock_step5, 'mock_step5')
+    m.attach_mock(mock_step1, "mock_step1")
+    m.attach_mock(mock_step2, "mock_step2")
+    m.attach_mock(mock_step3, "mock_step3")
+    m.attach_mock(mock_step4, "mock_step4")
+    m.attach_mock(mock_step5, "mock_step5")
 
-    mock_bootsteps = [m.mock_step4, m.mock_step5, m.mock_step1, m.mock_step2, m.mock_step3]
+    mock_bootsteps = [
+        m.mock_step4,
+        m.mock_step5,
+        m.mock_step1,
+        m.mock_step2,
+        m.mock_step3,
+    ]
 
     class MyBlueprintContainer(BlueprintContainer):
         bootsteps = mock_bootsteps
 
-    MyBlueprintContainer.blueprint.start()
+    await MyBlueprintContainer.blueprint.start()
 
-    m.assert_has_calls([call.mock_step4, call.mock_step5, call.mock_step1, call.mock_step2, call.mock_step3])
+    m.assert_has_calls(
+        [
+            call.mock_step4,
+            call.mock_step5,
+            call.mock_step1,
+            call.mock_step2,
+            call.mock_step3,
+        ]
+    )
 
-    logged_tasks = LoggedAction.of_type(logger.messages, 'bootsteps:blueprint:start')
+    logged_tasks = LoggedAction.of_type(logger.messages, "bootsteps:blueprint:start")
     logged_task = logged_tasks[0]
-    assert ('name' in logged_task.start_message
-            and logged_task.start_message['name'] == MyBlueprintContainer.blueprint.name)
-    assert logged_task.end_message['action_status'] == 'succeeded'
+    assert (
+        "name" in logged_task.start_message
+        and logged_task.start_message["name"] == MyBlueprintContainer.blueprint.name
+    )
+    assert logged_task.end_message["action_status"] == "succeeded"
 
-    logged_actions = LoggedAction.of_type(logger.messages,
-                                         'bootsteps:blueprint:resolving_bootsteps_execution_order')
+    logged_actions = LoggedAction.of_type(
+        logger.messages, "bootsteps:blueprint:resolving_bootsteps_execution_order"
+    )
     assert logged_task.children == logged_actions
     logged_action = logged_actions[0]
-    assert ('name' in logged_action.start_message
-            and logged_action.start_message['name'] == MyBlueprintContainer.blueprint.name)
-    assert logged_action.end_message['action_status'] == 'succeeded'
-    assert ('name' in logged_action.end_message
-            and logged_action.end_message['name'] == MyBlueprintContainer.blueprint.name)
-    assert ('bootsteps_execution_order' in logged_action.end_message
-            and logged_action.end_message['bootsteps_execution_order'] == mock_bootsteps)
-    assert ('parallelized_steps' in logged_action.end_message
-            and logged_action.end_message['parallelized_steps'] == 4)
+    assert (
+        "name" in logged_action.start_message
+        and logged_action.start_message["name"] == MyBlueprintContainer.blueprint.name
+    )
+    assert logged_action.end_message["action_status"] == "succeeded"
+    assert (
+        "name" in logged_action.end_message
+        and logged_action.end_message["name"] == MyBlueprintContainer.blueprint.name
+    )
+    assert (
+        "bootsteps_execution_order" in logged_action.end_message
+        and logged_action.end_message["bootsteps_execution_order"] == mock_bootsteps
+    )
+    assert (
+        "parallelized_steps" in logged_action.end_message
+        and logged_action.end_message["parallelized_steps"] == 4
+    )
 
 
-def test_start_with_last_step(logger):
+async def test_start_with_last_step(logger):
     # We're using a parent mock simply to record the order of calls to different
     # steps
     m = Mock()
@@ -201,41 +247,64 @@ def test_start_with_last_step(logger):
     mock_step5.requires = []
     mock_step5.last = False
 
-    m.attach_mock(mock_step1, 'mock_step1')
-    m.attach_mock(mock_step2, 'mock_step2')
-    m.attach_mock(mock_step3, 'mock_step3')
-    m.attach_mock(mock_step4, 'mock_step4')
-    m.attach_mock(mock_step5, 'mock_step5')
+    m.attach_mock(mock_step1, "mock_step1")
+    m.attach_mock(mock_step2, "mock_step2")
+    m.attach_mock(mock_step3, "mock_step3")
+    m.attach_mock(mock_step4, "mock_step4")
+    m.attach_mock(mock_step5, "mock_step5")
 
-    mock_bootsteps = [m.mock_step4, m.mock_step5, m.mock_step1, m.mock_step2, m.mock_step3]
+    mock_bootsteps = [
+        m.mock_step4,
+        m.mock_step5,
+        m.mock_step1,
+        m.mock_step2,
+        m.mock_step3,
+    ]
 
     class MyBlueprintContainer(BlueprintContainer):
         bootsteps = mock_bootsteps
 
-    MyBlueprintContainer.blueprint.start()
+    await MyBlueprintContainer.blueprint.start()
 
-    m.assert_has_calls([call.mock_step4, call.mock_step5, call.mock_step1, call.mock_step2, call.mock_step3])
+    m.assert_has_calls(
+        [
+            call.mock_step4,
+            call.mock_step5,
+            call.mock_step1,
+            call.mock_step2,
+            call.mock_step3,
+        ]
+    )
 
-    logged_tasks = LoggedAction.of_type(logger.messages, 'bootsteps:blueprint:start')
+    logged_tasks = LoggedAction.of_type(logger.messages, "bootsteps:blueprint:start")
     logged_task = logged_tasks[0]
-    assert ('name' in logged_task.start_message
-            and logged_task.start_message['name'] == MyBlueprintContainer.blueprint.name)
-    assert logged_task.end_message['action_status'] == 'succeeded'
+    assert (
+        "name" in logged_task.start_message
+        and logged_task.start_message["name"] == MyBlueprintContainer.blueprint.name
+    )
+    assert logged_task.end_message["action_status"] == "succeeded"
 
-    logged_actions = LoggedAction.of_type(logger.messages,
-                                         'bootsteps:blueprint:resolving_bootsteps_execution_order')
+    logged_actions = LoggedAction.of_type(
+        logger.messages, "bootsteps:blueprint:resolving_bootsteps_execution_order"
+    )
     assert logged_task.children == logged_actions
     logged_action = logged_actions[0]
-    assert ('name' in logged_action.start_message
-            and logged_action.start_message['name'] == MyBlueprintContainer.blueprint.name)
-    assert logged_action.end_message['action_status'] == 'succeeded'
-    assert ('name' in logged_action.end_message
-            and logged_action.end_message['name'] == MyBlueprintContainer.blueprint.name)
-    assert ('bootsteps_execution_order' in logged_action.end_message
-            and logged_action.end_message['bootsteps_execution_order'] == mock_bootsteps)
+    assert (
+        "name" in logged_action.start_message
+        and logged_action.start_message["name"] == MyBlueprintContainer.blueprint.name
+    )
+    assert logged_action.end_message["action_status"] == "succeeded"
+    assert (
+        "name" in logged_action.end_message
+        and logged_action.end_message["name"] == MyBlueprintContainer.blueprint.name
+    )
+    assert (
+        "bootsteps_execution_order" in logged_action.end_message
+        and logged_action.end_message["bootsteps_execution_order"] == mock_bootsteps
+    )
 
 
-def test_call_step_start():
+async def test_call_step_start():
     mock_step1 = NonCallableMock(name="step1", spec=Step)
     mock_step1.requires = []
     mock_step1.last = False
@@ -246,6 +315,6 @@ def test_call_step_start():
     class MyBlueprintContainer(BlueprintContainer):
         bootsteps = mock_bootsteps
 
-    MyBlueprintContainer.blueprint.start()
+    await MyBlueprintContainer.blueprint.start()
 
     mock_step1.start.assert_called_once()
