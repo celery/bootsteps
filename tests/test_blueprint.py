@@ -33,6 +33,32 @@ def create_start_stop_mock_step(name, requires=set(), required_by=set(), last=Fa
     return mock_step
 
 
+def assert_log_message_field_equals(log_message, field_name, value):
+    __tracebackhide__ = True
+
+    assert (
+        field_name in log_message and value(log_message[field_name])
+        if callable(value)
+        else log_message[field_name] == value
+    )
+
+
+def assert_logged_action_succeeded(logged_action):
+    __tracebackhide__ = True
+
+    assert_log_message_field_equals(
+        logged_action.end_message, "action_status", "succeeded"
+    )
+
+
+def assert_logged_action_failed(logged_action):
+    __tracebackhide__ = True
+
+    assert_log_message_field_equals(
+        logged_action.end_message, "action_status", "failed"
+    )
+
+
 def test_init(bootsteps_graph):
     b = Blueprint(bootsteps_graph, name="Test")
 
@@ -65,22 +91,21 @@ def test_blueprint_container_dependencies_graph(logger):
         logger.messages, "bootsteps:blueprint:building_dependency_graph"
     )
     logged_action = logged_actions[0]
-    assert (
-        "name" in logged_action.start_message
-        and logged_action.start_message["name"] == MyBlueprintContainer.blueprint.name
+
+    assert_log_message_field_equals(
+        logged_action.start_message, "name", MyBlueprintContainer.blueprint.name
     )
-    assert (
-        "name" in logged_action.end_message
-        and logged_action.end_message["name"] == MyBlueprintContainer.blueprint.name
+
+    assert_log_message_field_equals(
+        logged_action.end_message, "name", MyBlueprintContainer.blueprint.name
     )
-    assert (
-        "graph" in logged_action.end_message
-        and logged_action.end_message["graph"].nodes
-        == MyBlueprintContainer.blueprint.steps.nodes
-        and logged_action.end_message["graph"].edges
-        == MyBlueprintContainer.blueprint.steps.edges
+    assert_log_message_field_equals(
+        logged_action.end_message,
+        "graph",
+        lambda value: value.nodes == MyBlueprintContainer.blueprint.steps.nodes
+        and value.edges == MyBlueprintContainer.blueprint.steps.edges,
     )
-    assert logged_action.end_message["action_status"] == "succeeded"
+    assert_logged_action_succeeded(logged_action)
 
 
 def test_blueprint_container_dependencies_graph_with_two_last_steps(logger):
@@ -100,16 +125,17 @@ def test_blueprint_container_dependencies_graph_with_two_last_steps(logger):
         logger.messages, "bootsteps:blueprint:building_dependency_graph"
     )
     logged_action = logged_actions[0]
-    assert (
-        "name" in logged_action.start_message
-        and logged_action.start_message["name"] == MyBlueprintContainer.name
+
+    assert_log_message_field_equals(
+        logged_action.start_message, "name", MyBlueprintContainer.name
     )
-    assert logged_action.end_message["action_status"] == "failed"
-    assert (
-        logged_action.end_message["reason"]
-        == "Only one boot step can be last. Found 2."
+    assert_logged_action_failed(logged_action)
+    assert_log_message_field_equals(
+        logged_action.end_message, "reason", "Only one boot step can be last. Found 2."
     )
-    assert logged_action.end_message["exception"] == "builtins.ValueError"
+    assert_log_message_field_equals(
+        logged_action.end_message, "exception", "builtins.ValueError"
+    )
 
 
 def test_blueprint_container_dependencies_graph_with_circular_dependencies(logger):
@@ -137,13 +163,18 @@ def test_blueprint_container_dependencies_graph_with_circular_dependencies(logge
         logger.messages, "bootsteps:blueprint:building_dependency_graph"
     )
     logged_action = logged_actions[0]
-    assert (
-        "name" in logged_action.start_message
-        and logged_action.start_message["name"] == MyBlueprintContainer.name
+
+    assert_log_message_field_equals(
+        logged_action.start_message, "name", MyBlueprintContainer.name
     )
-    assert logged_action.end_message["action_status"] == "failed"
-    assert logged_action.end_message["reason"] == "Circular dependencies found."
-    assert logged_action.end_message["exception"] == "builtins.ValueError"
+
+    assert_logged_action_failed(logged_action)
+    assert_log_message_field_equals(
+        logged_action.end_message, "reason", "Circular dependencies found."
+    )
+    assert_log_message_field_equals(
+        logged_action.end_message, "exception", "builtins.ValueError"
+    )
 
 
 async def test_start_without_last_step(logger):
@@ -188,34 +219,28 @@ async def test_start_without_last_step(logger):
 
     logged_tasks = LoggedAction.of_type(logger.messages, "bootsteps:blueprint:start")
     logged_task = logged_tasks[0]
-    assert (
-        "name" in logged_task.start_message
-        and logged_task.start_message["name"] == MyBlueprintContainer.blueprint.name
+    assert_log_message_field_equals(
+        logged_task.start_message, "name", MyBlueprintContainer.blueprint.name
     )
-    assert logged_task.end_message["action_status"] == "succeeded"
+    assert_logged_action_succeeded(logged_task)
 
     logged_actions = LoggedAction.of_type(
         logger.messages, "bootsteps:blueprint:resolving_bootsteps_execution_order"
     )
     assert logged_task.children == logged_actions
     logged_action = logged_actions[0]
-    assert (
-        "name" in logged_action.start_message
-        and logged_action.start_message["name"] == MyBlueprintContainer.blueprint.name
+
+    assert_log_message_field_equals(
+        logged_action.start_message, "name", MyBlueprintContainer.blueprint.name
     )
-    assert logged_action.end_message["action_status"] == "succeeded"
-    assert (
-        "name" in logged_action.end_message
-        and logged_action.end_message["name"] == MyBlueprintContainer.blueprint.name
+    assert_logged_action_succeeded(logged_action)
+    assert_log_message_field_equals(
+        logged_action.end_message, "name", MyBlueprintContainer.blueprint.name
     )
-    assert (
-        "bootsteps_execution_order" in logged_action.end_message
-        and logged_action.end_message["bootsteps_execution_order"] == mock_bootsteps
+    assert_log_message_field_equals(
+        logged_action.end_message, "bootsteps_execution_order", mock_bootsteps
     )
-    assert (
-        "parallelized_steps" in logged_action.end_message
-        and logged_action.end_message["parallelized_steps"] == 4
-    )
+    assert_log_message_field_equals(logged_action.end_message, "parallelized_steps", 4)
 
 
 async def test_start_with_last_step(logger):
@@ -260,29 +285,26 @@ async def test_start_with_last_step(logger):
 
     logged_tasks = LoggedAction.of_type(logger.messages, "bootsteps:blueprint:start")
     logged_task = logged_tasks[0]
-    assert (
-        "name" in logged_task.start_message
-        and logged_task.start_message["name"] == MyBlueprintContainer.blueprint.name
+    assert_log_message_field_equals(
+        logged_task.start_message, "name", MyBlueprintContainer.blueprint.name
     )
-    assert logged_task.end_message["action_status"] == "succeeded"
+    assert_logged_action_succeeded(logged_task)
 
     logged_actions = LoggedAction.of_type(
         logger.messages, "bootsteps:blueprint:resolving_bootsteps_execution_order"
     )
     assert logged_task.children == logged_actions
     logged_action = logged_actions[0]
-    assert (
-        "name" in logged_action.start_message
-        and logged_action.start_message["name"] == MyBlueprintContainer.blueprint.name
+
+    assert_log_message_field_equals(
+        logged_action.start_message, "name", MyBlueprintContainer.blueprint.name
     )
-    assert logged_action.end_message["action_status"] == "succeeded"
-    assert (
-        "name" in logged_action.end_message
-        and logged_action.end_message["name"] == MyBlueprintContainer.blueprint.name
+    assert_logged_action_succeeded(logged_action)
+    assert_log_message_field_equals(
+        logged_action.end_message, "name", MyBlueprintContainer.blueprint.name
     )
-    assert (
-        "bootsteps_execution_order" in logged_action.end_message
-        and logged_action.end_message["bootsteps_execution_order"] == mock_bootsteps
+    assert_log_message_field_equals(
+        logged_action.end_message, "bootsteps_execution_order", mock_bootsteps
     )
 
 
