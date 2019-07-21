@@ -7,7 +7,6 @@ All non-dependent Bootsteps will be executed in parallel.
 from enum import Enum
 
 import attr
-from cached_property import cached_property
 from dependencies import Injector, value
 from eliot import ActionType, Field, MessageType
 from networkx import (DiGraph, is_directed_acyclic_graph, isolates,
