@@ -172,6 +172,8 @@ def test_start_without_last_step(logger):
             and logged_action.end_message['name'] == MyBlueprintContainer.blueprint.name)
     assert ('bootsteps_execution_order' in logged_action.end_message
             and logged_action.end_message['bootsteps_execution_order'] == mock_bootsteps)
+    assert ('parallelized_steps' in logged_action.end_message
+            and logged_action.end_message['parallelized_steps'] == 4)
 
 
 def test_start_with_last_step(logger):

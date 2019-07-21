@@ -51,7 +51,8 @@ RESOLVING_BOOTSTEPS_EXECUTION_ORDER = ActionType(
     [Field("name", str, "The name of the blueprint")],
     [
         Field("name", str, "The name of the blueprint"),
-        Field("bootsteps_execution_order", lambda steps: [repr(s) for s in steps])
+        Field("bootsteps_execution_order", lambda steps: [repr(s) for s in steps]),
+        Field("parallelized_steps", int)
     ]
 )
 
@@ -102,6 +103,8 @@ class Blueprint:
             execution_order = []
             steps = self.steps.copy()
 
+            parallelized_steps = 0
+
             # Find all the bootsteps without dependencies.
             steps_without_dependencies = list(isolates(steps))
             # Continue looping while the graph is not empty.
@@ -110,6 +113,8 @@ class Blueprint:
                     # Find the bootstep(s) that have the most dependencies
                     # and execute them so that they'll be free for parallel execution.
                     most_dependent_steps = max(strongly_connected_components(steps))
+                    if len(most_dependent_steps) > 1:
+                        parallelized_steps += len(most_dependent_steps)
                     # TODO: Add an assert that ensures this message is emitted
                     NEXT_BOOTSTEPS.log(name=self.name, next_bootsteps=most_dependent_steps)
                     yield most_dependent_steps
@@ -118,6 +123,8 @@ class Blueprint:
                     # Find all the bootsteps without dependencies.
                     steps_without_dependencies = list(isolates(steps))
                 else:
+                    if len(steps_without_dependencies) > 1:
+                        parallelized_steps += len(steps_without_dependencies)
                     # TODO: Add an assert that ensures this message is emitted
                     NEXT_BOOTSTEPS.log(name=self.name, next_bootsteps=steps_without_dependencies)
                     # Execute all nodes without dependencies since they can now run.
@@ -125,7 +132,9 @@ class Blueprint:
                     steps.remove_nodes_from(steps_without_dependencies)
                     execution_order.extend(steps_without_dependencies)
                     steps_without_dependencies = None
-            action.addSuccessFields(name=self.name, bootsteps_execution_order=execution_order)
+            action.addSuccessFields(name=self.name,
+                                    bootsteps_execution_order=execution_order,
+                                    parallelized_steps=parallelized_steps)
 
 
 class BlueprintContainer(Injector):
