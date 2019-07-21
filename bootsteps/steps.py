@@ -11,3 +11,7 @@ class Step:
     requires: typing.Set["Step"] = set()
     required_by: typing.Set["Step"] = set()
     last: bool = False
+
+    def include_if(self) -> bool:
+        """Conditionally execute this step according to some criteria."""
+        return True

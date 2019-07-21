@@ -183,7 +183,11 @@ class BlueprintContainer(Injector):
                     f"Only one boot step can be last. Found {len(last_bootsteps)}."
                 )
 
-            dependencies = {bootstep: bootstep.requires for bootstep in bootsteps}
+            dependencies = {
+                bootstep: bootstep.requires
+                for bootstep in bootsteps
+                if bootstep.include_if()
+            }
             for bootstep in bootsteps:
                 for dependet_bootstep in bootstep.required_by:
                     dependencies[dependet_bootstep].add(bootstep)

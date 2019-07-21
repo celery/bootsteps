@@ -13,22 +13,34 @@ def bootsteps_graph():
     return Mock(spec_set=DiGraph)
 
 
-def create_mock_step(name, requires=set(), required_by=set(), last=False):
+def create_mock_step(
+    name, requires=set(), required_by=set(), last=False, include_if=True
+):
     mock_step = Mock(name=name, spec=Step)
     mock_step.requires = requires
     mock_step.required_by = required_by
     mock_step.last = last
+    if isinstance(include_if, bool):
+        mock_step.include_if.return_value = include_if
+    else:
+        mock_step.include_if.side_effect = include_if
 
     return mock_step
 
 
-def create_start_stop_mock_step(name, requires=set(), required_by=set(), last=False):
+def create_start_stop_mock_step(
+    name, requires=set(), required_by=set(), last=False, include_if=True
+):
     mock_step = NonCallableMock(name=name, spec=Step)
     mock_step.requires = requires
     mock_step.required_by = required_by
     mock_step.last = last
     mock_step.start = Mock()
     mock_step.stop = Mock()
+    if isinstance(include_if, bool):
+        mock_step.include_if.return_value = include_if
+    else:
+        mock_step.include_if.side_effect = include_if
 
     return mock_step
 
@@ -72,12 +84,14 @@ def test_blueprint_container_dependencies_graph(logger):
     mock_step2 = create_mock_step("step2", requires={mock_step1})
     mock_step3 = create_mock_step("step3", last=True)
     mock_step4 = create_mock_step("step4", required_by={mock_step2})
+    mock_step5 = create_mock_step("step5", include_if=False)
 
-    mock_bootsteps = [mock_step1, mock_step4, mock_step2, mock_step3]
+    mock_bootsteps = [mock_step1, mock_step4, mock_step2, mock_step3, mock_step5]
 
     class MyBlueprintContainer(BlueprintContainer):
         bootsteps = mock_bootsteps
 
+    mock_bootsteps.remove(mock_step5)
     assert list(MyBlueprintContainer.blueprint.steps.nodes) == mock_bootsteps
     assert set(MyBlueprintContainer.blueprint.steps.edges) == {
         (mock_step2, mock_step1),
@@ -159,22 +173,33 @@ def test_blueprint_container_dependencies_graph_with_circular_dependencies(logge
     with pytest.raises(ValueError, match="Circular dependencies found."):
         MyBlueprintContainer.blueprint
 
-    logged_actions = LoggedAction.of_type(
-        logger.messages, "bootsteps:blueprint:building_dependency_graph"
-    )
-    logged_action = logged_actions[0]
 
-    assert_log_message_field_equals(
-        logged_action.start_message, "name", MyBlueprintContainer.name
-    )
+def test_blueprint_container_dependencies_graph_with_no_circular_dependencies_other_step_not_included(
+    logger
+):
+    # Can't use the create_mock_step helper here because of the circular dependency
+    mock_step2 = Mock(name="step2", spec=Step)
+    mock_step1 = Mock(name="step1", spec=Step)
 
-    assert_logged_action_failed(logged_action)
-    assert_log_message_field_equals(
-        logged_action.end_message, "reason", "Circular dependencies found."
-    )
-    assert_log_message_field_equals(
-        logged_action.end_message, "exception", "builtins.ValueError"
-    )
+    mock_step1.requires = {mock_step2}
+    mock_step1.required_by = set()
+    mock_step1.last = True
+    mock_step2.include_if.return_value = True
+
+    mock_step2.requires = {mock_step1}
+    mock_step2.required_by = set()
+    mock_step2.last = False
+    mock_step2.include_if.return_value = False
+
+    mock_bootsteps = [mock_step1, mock_step2]
+
+    class MyBlueprintContainer(BlueprintContainer):
+        bootsteps = mock_bootsteps
+
+    try:
+        MyBlueprintContainer.blueprint
+    except ValueError:
+        pytest.fail("Circular dependencies found")
 
 
 async def test_start_without_last_step(logger):
