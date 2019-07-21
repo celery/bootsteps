@@ -5,6 +5,7 @@ All non-dependent Bootsteps will be executed in parallel.
 """
 
 from enum import Enum
+import inspect
 
 import attr
 from dependencies import Injector, value
@@ -90,7 +91,10 @@ class Blueprint:
         with START_BLUEPRINT.as_task(name=self.name):
             for steps in self._ordered_steps:
                 for step in steps:
-                    step()
+                    if callable(step):
+                        step()
+                    else:
+                        step.start()
 
     def stop(self):
         """Stop the blueprint."""

@@ -1,4 +1,4 @@
-from unittest.mock import Mock, call
+from unittest.mock import NonCallableMock, Mock, call
 
 import pytest
 from eliot.testing import LoggedAction
@@ -233,3 +233,19 @@ def test_start_with_last_step(logger):
             and logged_action.end_message['name'] == MyBlueprintContainer.blueprint.name)
     assert ('bootsteps_execution_order' in logged_action.end_message
             and logged_action.end_message['bootsteps_execution_order'] == mock_bootsteps)
+
+
+def test_call_step_start():
+    mock_step1 = NonCallableMock(name="step1", spec=Step)
+    mock_step1.requires = []
+    mock_step1.last = False
+    mock_step1.start = Mock()
+
+    mock_bootsteps = [mock_step1]
+
+    class MyBlueprintContainer(BlueprintContainer):
+        bootsteps = mock_bootsteps
+
+    MyBlueprintContainer.blueprint.start()
+
+    mock_step1.start.assert_called_once()
