@@ -14,7 +14,6 @@ from eliot import ActionType, Field, MessageType
 from networkx import (
     DiGraph,
     is_directed_acyclic_graph,
-    isolates,
     strongly_connected_components,
 )
 from networkx.readwrite import json_graph
@@ -83,6 +82,10 @@ class BlueprintState(Enum):
     FAILED = "failed"
 
 
+def _steps_without_dependencies(steps):
+    return [step for step in steps if not any(steps.neighbors(step))]
+
+
 @attr.s(auto_attribs=True, cmp=False)
 class Blueprint:
     """A directed acyclic graph of Bootsteps."""
@@ -130,7 +133,7 @@ class Blueprint:
             parallelized_steps = 0
 
             # Find all the bootsteps without dependencies.
-            steps_without_dependencies = list(isolates(steps))
+            steps_without_dependencies = _steps_without_dependencies(steps)
             # Continue looping while the graph is not empty.
             while steps.order():
                 if not steps_without_dependencies:
@@ -147,7 +150,7 @@ class Blueprint:
                     steps.remove_nodes_from(most_dependent_steps)
                     execution_order.extend(most_dependent_steps)
                     # Find all the bootsteps without dependencies.
-                    steps_without_dependencies = list(isolates(steps))
+                    steps_without_dependencies = _steps_without_dependencies(steps)
                 else:
                     if len(steps_without_dependencies) > 1:
                         parallelized_steps += len(steps_without_dependencies)
@@ -159,7 +162,7 @@ class Blueprint:
                     yield steps_without_dependencies
                     steps.remove_nodes_from(steps_without_dependencies)
                     execution_order.extend(steps_without_dependencies)
-                    steps_without_dependencies = None
+                    steps_without_dependencies = _steps_without_dependencies(steps)
             action.addSuccessFields(
                 name=self.name,
                 bootsteps_execution_order=execution_order,
