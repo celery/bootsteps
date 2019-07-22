@@ -331,6 +331,7 @@ async def test_start_with_last_step(logger):
     assert_log_message_field_equals(
         logged_action.end_message, "bootsteps_execution_order", mock_bootsteps
     )
+    assert_log_message_field_equals(logged_action.end_message, "parallelized_steps", 3)
 
 
 async def test_call_step_start():
