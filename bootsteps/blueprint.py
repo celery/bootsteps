@@ -5,13 +5,15 @@ All non-dependent Bootsteps will be executed in parallel.
 """
 
 import inspect
+import typing
 from enum import Enum
 
 import attr
 import trio
 from dependencies import Injector, value
 from eliot import ActionType, Field, MessageType
-from networkx import DiGraph, is_directed_acyclic_graph, strongly_connected_components
+from networkx import (DiGraph, is_directed_acyclic_graph,
+                      strongly_connected_components)
 from networkx.readwrite import json_graph
 
 from bootsteps.steps import Step
@@ -89,13 +91,14 @@ class Blueprint:
     steps: DiGraph = attr.ib(default=attr.NOTHING)
     name: str = "Blueprint"
     state: BlueprintState = attr.ib(default=BlueprintState.INITIALIZED, init=False)
+    _execution_order: typing.List[Step] = attr.ib(default=[], init=False)
 
     async def start(self):
         """Start executing the blueprint."""
         with START_BLUEPRINT.as_task(name=self.name):
             async with trio.open_nursery() as nursery:
                 worker_threads = []
-                for steps in self._ordered_steps:
+                for steps in self.execution_order:
                     for step in steps:
                         if callable(step):
                             if inspect.iscoroutinefunction(step):
@@ -119,8 +122,18 @@ class Blueprint:
         """Stop the blueprint."""
 
     @property
-    def _ordered_steps(self):
-        # TODO: Rename this property
+    def execution_order(self):
+        """Calculate the order of execution of steps.
+
+        The algorithm searches for nodes with no neighbors, that is steps without dependencies
+        and schedules all of them for execution at once.
+
+        If there are none, the algorithm attempts to search a step or a number of steps
+        which most steps are dependent on and executes it.
+        """
+        if self._execution_order:
+            return self._execution_order
+
         with RESOLVING_BOOTSTEPS_EXECUTION_ORDER(name=self.name) as action:
             execution_order = []
             steps = self.steps.copy()
@@ -163,6 +176,8 @@ class Blueprint:
                 bootsteps_execution_order=execution_order,
                 parallelized_steps=parallelized_steps,
             )
+
+        self._execution_order = execution_order
 
 
 class BlueprintContainer(Injector):
