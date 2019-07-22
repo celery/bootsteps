@@ -121,7 +121,6 @@ class Blueprint:
     @property
     def _ordered_steps(self):
         # TODO: Rename this property
-        # TODO: Figure out how to paralelize boot steps when a last step is present
         with RESOLVING_BOOTSTEPS_EXECUTION_ORDER(name=self.name) as action:
             execution_order = []
             steps = self.steps.copy()
