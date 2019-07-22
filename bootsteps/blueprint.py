@@ -96,27 +96,27 @@ class Blueprint:
     async def start(self):
         """Start executing the blueprint."""
         with START_BLUEPRINT.as_task(name=self.name):
-            async with trio.open_nursery() as nursery:
-                worker_threads = []
                 for steps in self.execution_order:
-                    for step in steps:
-                        if callable(step):
-                            if inspect.iscoroutinefunction(step):
-                                nursery.start_soon(step)
+                    async with trio.open_nursery() as nursery:
+                        worker_threads = []
+                        for step in steps:
+                            if callable(step):
+                                if inspect.iscoroutinefunction(step):
+                                    nursery.start_soon(step)
+                                else:
+                                    worker_threads.append(
+                                        trio.run_sync_in_worker_thread(step)
+                                    )
                             else:
-                                worker_threads.append(
-                                    trio.run_sync_in_worker_thread(step)
-                                )
-                        else:
-                            if inspect.iscoroutinefunction(step.start):
-                                nursery.start_soon(step.start)
-                            else:
-                                worker_threads.append(
-                                    trio.run_sync_in_worker_thread(step.start)
-                                )
+                                if inspect.iscoroutinefunction(step.start):
+                                    nursery.start_soon(step.start)
+                                else:
+                                    worker_threads.append(
+                                        trio.run_sync_in_worker_thread(step.start)
+                                    )
 
-                for worker_thread in worker_threads:
-                    await worker_thread
+                        for worker_thread in worker_threads:
+                            await worker_thread
 
     def stop(self):
         """Stop the blueprint."""
