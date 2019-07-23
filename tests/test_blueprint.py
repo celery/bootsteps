@@ -53,14 +53,14 @@ def create_mock_step(
 
 
 def create_start_stop_mock_step(
-    name, requires=set(), required_by=set(), last=False, include_if=True
+    name, requires=set(), required_by=set(), last=False, include_if=True, mock_class=Mock
 ):
     mock_step = NonCallableMock(name=name, spec=Step)
     mock_step.requires = requires
     mock_step.required_by = required_by
     mock_step.last = last
-    mock_step.start = Mock()
-    mock_step.stop = Mock()
+    mock_step.start = mock_class()
+    mock_step.stop = mock_class()
     if isinstance(include_if, bool):
         mock_step.include_if.return_value = include_if
     else:
@@ -127,9 +127,9 @@ def test_init(bootsteps_graph, mock_execution_order_strategy_class):
 
 async def test_blueprint_start(bootsteps_graph, mock_execution_order_strategy_class):
     mock_step1 = create_mock_step("step1")
-    mock_step2 = create_mock_step("step2")
+    mock_step2 = create_start_stop_mock_step("step2")
     mock_step3 = create_mock_step("step3")
-    mock_step4 = create_mock_step("step4")
+    mock_step4 = create_start_stop_mock_step("step4", mock_class=TrioCoroutineMock)
     mock_step5 = create_mock_step("step5")
     mock_step6 = create_mock_step("step6", spec=AsyncStep, mock_class=TrioCoroutineMock)
 
@@ -163,13 +163,14 @@ async def test_blueprint_start(bootsteps_graph, mock_execution_order_strategy_cl
     assert_parallelized_steps_are_in_order(
         m.method_calls,
         [
-            [call.mock_step1(), call.mock_step2()],
-            [call.mock_step3(), call.mock_step4(), call.mock_step5()],
+            [call.mock_step1(), call.mock_step2.start()],
+            [call.mock_step3(), call.mock_step4.start(), call.mock_step5()],
             [call.mock_step6()],
         ],
     )
 
-    m.mock_step6.assert_awaited_once_with()
+    mock_step6.assert_awaited_once_with()
+    mock_step4.start.assert_awaited_once_with()
 
 
 def test_blueprint_container_dependencies_graph(logger):
