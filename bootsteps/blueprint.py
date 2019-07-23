@@ -155,12 +155,12 @@ class Blueprint:
                 async with trio.open_nursery() as nursery:
                     for step in steps:
                         if callable(step):
-                            if inspect.iscoroutinefunction(step):
+                            if inspect.isawaitable(step):
                                 nursery.start_soon(step)
                             else:
                                 nursery.start_soon(trio.run_sync_in_worker_thread, step)
                         else:
-                            if inspect.iscoroutinefunction(step.start):
+                            if inspect.isawaitable(step.start):
                                 nursery.start_soon(step.start)
                             else:
                                 nursery.start_soon(

@@ -1,12 +1,16 @@
+import inspect
 from unittest.mock import call
 
 import pytest
-from asynctest import MagicMock, Mock, NonCallableMock
+from asynctest import MagicMock, Mock, NonCallableMock, CoroutineMock
 from eliot.testing import LoggedAction
 from networkx import DiGraph
 
-from bootsteps import Blueprint, BlueprintContainer, Step
+from bootsteps import Blueprint, BlueprintContainer, Step, AsyncStep
 from bootsteps.blueprint import BlueprintState, ExecutionOrder
+
+
+from tests.mocks import TrioCoroutineMock
 
 
 @pytest.fixture
@@ -19,10 +23,24 @@ def mock_execution_order_strategy_class():
     return MagicMock(name="ExecutionOrder", spec_set=ExecutionOrder)
 
 
+@pytest.fixture(autouse=True)
+def mock_inspect_isawaitable(mocker):
+    return mocker.patch(
+        "bootsteps.blueprint.inspect.isawaitable",
+        side_effect=lambda o: isinstance(o, CoroutineMock),
+    )
+
+
 def create_mock_step(
-    name, requires=set(), required_by=set(), last=False, include_if=True
+    name,
+    requires=set(),
+    required_by=set(),
+    last=False,
+    include_if=True,
+    spec=Step,
+    mock_class=Mock,
 ):
-    mock_step = Mock(name=name, spec=Step)
+    mock_step = mock_class(name=name, spec=spec)
     mock_step.requires = requires
     mock_step.required_by = required_by
     mock_step.last = last
@@ -113,7 +131,7 @@ async def test_blueprint_start(bootsteps_graph, mock_execution_order_strategy_cl
     mock_step3 = create_mock_step("step3")
     mock_step4 = create_mock_step("step4")
     mock_step5 = create_mock_step("step5")
-    mock_step6 = create_mock_step("step6")
+    mock_step6 = create_mock_step("step6", spec=AsyncStep, mock_class=TrioCoroutineMock)
 
     m = Mock()
     m.attach_mock(mock_step1, "mock_step1")
@@ -150,6 +168,8 @@ async def test_blueprint_start(bootsteps_graph, mock_execution_order_strategy_cl
             [call.mock_step6()],
         ],
     )
+
+    m.mock_step6.assert_awaited_once_with()
 
 
 def test_blueprint_container_dependencies_graph(logger):
