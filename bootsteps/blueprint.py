@@ -6,14 +6,14 @@ All non-dependent Bootsteps will be executed in parallel.
 
 import inspect
 import typing
+from collections.abc import Iterator
 from enum import Enum
 
 import attr
 import trio
 from dependencies import Injector, value
 from eliot import ActionType, Field, MessageType
-from networkx import (DiGraph, is_directed_acyclic_graph,
-                      strongly_connected_components)
+from networkx import DiGraph, is_directed_acyclic_graph, strongly_connected_components
 from networkx.readwrite import json_graph
 
 from bootsteps.steps import Step
@@ -80,43 +80,91 @@ class BlueprintState(Enum):
     FAILED = "failed"
 
 
-def _steps_without_dependencies(steps):
-    return [step for step in steps if not any(steps.neighbors(step))]
+@attr.s(auto_attribs=True, cmp=False, slots=True)
+class ExecutionOrder(Iterator):
+    _steps_depenency_graph: DiGraph = attr.ib(default=attr.NOTHING)
+    _execution_order: typing.List[Step] = attr.ib(
+        default=attr.Factory(list), init=False
+    )
+    _parallelized_steps: int = attr.ib(default=0, init=False)
+    _steps_without_dependencies: typing.List[Step] = attr.ib(
+        default=attr.Factory(list), init=False
+    )
+
+    def steps_without_dependencies(self):
+        return [
+            step
+            for step in self._steps_depenency_graph
+            if not any(self._steps_depenency_graph.neighbors(step))
+        ]
+
+    def mark_as_done(self, steps):
+        self._steps_depenency_graph.remove_nodes_from(steps)
+        self._execution_order.extend(steps)
+
+    def count_parallelized_steps(self, steps):
+        if len(steps) > 1:
+            self._parallelized_steps += len(steps)
+
+    def __next__(self):
+        steps = self._steps_depenency_graph
+
+        # Continue looping while the graph is not empty.
+        if not steps.order():
+            raise StopIteration
+
+        # Find all the bootsteps without dependencies.
+        self._steps_without_dependencies = self.steps_without_dependencies()
+
+        if not self._steps_without_dependencies:
+            # Find the bootstep(s) that have the most dependencies
+            # and execute them so that they'll be free for parallel execution.
+            most_dependent_steps = max(strongly_connected_components(steps))
+            self.count_parallelized_steps(most_dependent_steps)
+            self.mark_as_done(most_dependent_steps)
+            # Find all the bootsteps without dependencies.
+            self._steps_without_dependencies = self.steps_without_dependencies()
+            return most_dependent_steps
+        else:
+            self.count_parallelized_steps(self._steps_without_dependencies)
+            # Execute all nodes without dependencies since they can now run.
+            self.mark_as_done(self._steps_without_dependencies)
+            self._steps_without_dependencies = self.steps_without_dependencies()
+            return self._steps_without_dependencies
+
+    def __iter__(self):
+        return self._execution_order if self._execution_order else self
 
 
 @attr.s(auto_attribs=True, cmp=False)
 class Blueprint:
     """A directed acyclic graph of Bootsteps."""
 
-    steps: DiGraph = attr.ib(default=attr.NOTHING)
-    name: str = "Blueprint"
+    _steps: DiGraph
+    execution_order_strategy_class: Iterator = attr.ib(
+        default=ExecutionOrder, kw_only=True
+    )
+    name: str = attr.ib(default="Blueprint", kw_only=True)
     state: BlueprintState = attr.ib(default=BlueprintState.INITIALIZED, init=False)
-    _execution_order: typing.List[Step] = attr.ib(default=[], init=False)
 
     async def start(self):
         """Start executing the blueprint."""
         with START_BLUEPRINT.as_task(name=self.name):
-                for steps in self.execution_order:
-                    async with trio.open_nursery() as nursery:
-                        worker_threads = []
-                        for step in steps:
-                            if callable(step):
-                                if inspect.iscoroutinefunction(step):
-                                    nursery.start_soon(step)
-                                else:
-                                    worker_threads.append(
-                                        trio.run_sync_in_worker_thread(step)
-                                    )
+            for steps in self.execution_order:
+                async with trio.open_nursery() as nursery:
+                    for step in steps:
+                        if callable(step):
+                            if inspect.iscoroutinefunction(step):
+                                nursery.start_soon(step)
                             else:
-                                if inspect.iscoroutinefunction(step.start):
-                                    nursery.start_soon(step.start)
-                                else:
-                                    worker_threads.append(
-                                        trio.run_sync_in_worker_thread(step.start)
-                                    )
-
-                        for worker_thread in worker_threads:
-                            await worker_thread
+                                nursery.start_soon(trio.run_sync_in_worker_thread, step)
+                        else:
+                            if inspect.iscoroutinefunction(step.start):
+                                nursery.start_soon(step.start)
+                            else:
+                                nursery.start_soon(
+                                    trio.run_sync_in_worker_thread, step.start
+                                )
 
     def stop(self):
         """Stop the blueprint."""
@@ -131,53 +179,7 @@ class Blueprint:
         If there are none, the algorithm attempts to search a step or a number of steps
         which most steps are dependent on and executes it.
         """
-        if self._execution_order:
-            return self._execution_order
-
-        with RESOLVING_BOOTSTEPS_EXECUTION_ORDER(name=self.name) as action:
-            execution_order = []
-            steps = self.steps.copy()
-
-            parallelized_steps = 0
-
-            # Find all the bootsteps without dependencies.
-            steps_without_dependencies = _steps_without_dependencies(steps)
-            # Continue looping while the graph is not empty.
-            while steps.order():
-                if not steps_without_dependencies:
-                    # Find the bootstep(s) that have the most dependencies
-                    # and execute them so that they'll be free for parallel execution.
-                    most_dependent_steps = max(strongly_connected_components(steps))
-                    if len(most_dependent_steps) > 1:
-                        parallelized_steps += len(most_dependent_steps)
-                    # TODO: Add an assert that ensures this message is emitted
-                    NEXT_BOOTSTEPS.log(
-                        name=self.name, next_bootsteps=most_dependent_steps
-                    )
-                    yield most_dependent_steps
-                    steps.remove_nodes_from(most_dependent_steps)
-                    execution_order.extend(most_dependent_steps)
-                    # Find all the bootsteps without dependencies.
-                    steps_without_dependencies = _steps_without_dependencies(steps)
-                else:
-                    if len(steps_without_dependencies) > 1:
-                        parallelized_steps += len(steps_without_dependencies)
-                    # TODO: Add an assert that ensures this message is emitted
-                    NEXT_BOOTSTEPS.log(
-                        name=self.name, next_bootsteps=steps_without_dependencies
-                    )
-                    # Execute all nodes without dependencies since they can now run.
-                    yield steps_without_dependencies
-                    steps.remove_nodes_from(steps_without_dependencies)
-                    execution_order.extend(steps_without_dependencies)
-                    steps_without_dependencies = _steps_without_dependencies(steps)
-            action.addSuccessFields(
-                name=self.name,
-                bootsteps_execution_order=execution_order,
-                parallelized_steps=parallelized_steps,
-            )
-
-        self._execution_order = execution_order
+        return self.execution_order_strategy_class(self._steps.copy())
 
 
 class BlueprintContainer(Injector):
