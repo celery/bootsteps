@@ -15,6 +15,7 @@ trio = "=0.11"
 attrs = "=19.1"
 eliot = "=1.9"
 dependencies = { git = "git@github.com:thedrow/dependencies.git", branch = "poetry-python-minimum-version" }
+cached-property = "^1.5"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.0"

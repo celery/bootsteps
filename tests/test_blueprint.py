@@ -87,9 +87,7 @@ def assert_parallelized_steps_are_in_order(
     # Test that all the steps were parallelized in the same order
     for steps in expected_execution_order:
         end = begin + len(steps)
-        assert sorted(steps) == sorted(
-            actual_execution_order[begin:end]
-        )
+        assert sorted(steps) == sorted(actual_execution_order[begin:end])
         begin = end
 
     # Ensure no further calls were made

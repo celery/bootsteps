@@ -11,6 +11,7 @@ from enum import Enum
 
 import attr
 import trio
+from cached_property import cached_property
 from dependencies import Injector, value
 from eliot import ActionType, Field, MessageType
 from networkx import DiGraph, is_directed_acyclic_graph, strongly_connected_components
@@ -169,7 +170,7 @@ class Blueprint:
     def stop(self):
         """Stop the blueprint."""
 
-    @property
+    @cached_property
     def execution_order(self):
         """Calculate the order of execution of steps.
 
