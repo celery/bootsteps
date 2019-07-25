@@ -6,7 +6,7 @@ All non-dependent Bootsteps will be executed in parallel.
 
 import inspect
 import typing
-from collections.abc import Iterator
+from collections import abc
 from enum import Enum
 
 import attr
@@ -82,7 +82,7 @@ class BlueprintState(Enum):
 
 
 @attr.s(auto_attribs=True, cmp=False, slots=True)
-class ExecutionOrder(Iterator):
+class ExecutionOrder(abc.Iterator):
     _steps_dependency_graph: DiGraph = attr.ib(default=attr.NOTHING)
     _execution_order: typing.List[Step] = attr.ib(
         default=attr.Factory(list), init=False
@@ -132,15 +132,28 @@ class Blueprint:
     """A directed acyclic graph of Bootsteps."""
 
     _steps: DiGraph
-    execution_order_strategy_class: Iterator = attr.ib(
+    execution_order_strategy_class: abc.Iterator = attr.ib(
         default=ExecutionOrder, kw_only=True
     )
     name: str = attr.ib(default="Blueprint", kw_only=True)
     state: BlueprintState = attr.ib(default=BlueprintState.INITIALIZED, init=False)
 
-    async def start(self):
+    def __attrs_post_init__(self):
+        """Initialize the state changes memory channel."""
+        self.state_changes_send_channel, self.state_changes_receive_channel = trio.open_memory_channel(
+            0
+        )
+
+    async def _change_blueprint_state(self, state: BlueprintState) -> None:
+        self.state = state
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(self.state_changes_send_channel.send, state)
+
+    async def start(self) -> None:
         """Start executing the blueprint."""
         with START_BLUEPRINT.as_task(name=self.name):
+            await self._change_blueprint_state(BlueprintState.RUNNING)
+
             for steps in self.execution_order:
                 async with trio.open_nursery() as nursery:
                     for step in steps:
@@ -156,8 +169,9 @@ class Blueprint:
                                 nursery.start_soon(
                                     trio.run_sync_in_worker_thread, step.start
                                 )
+        await self._change_blueprint_state(BlueprintState.COMPLETED)
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the blueprint."""
 
     @cached_property

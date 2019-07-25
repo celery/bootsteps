@@ -13,6 +13,7 @@ from networkx import (
     is_directed_acyclic_graph,
     is_isomorphic,
 )
+import trio
 
 from bootsteps import AsyncStep, Blueprint, BlueprintContainer, Step
 from bootsteps.blueprint import BlueprintState, ExecutionOrder
@@ -248,7 +249,13 @@ async def test_blueprint_start(bootsteps_graph, mock_execution_order_strategy_cl
         execution_order_strategy_class=mock_execution_order_strategy_class,
     )
 
-    await blueprint.start()
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(blueprint.start)
+
+        with trio.fail_after(1):
+            assert await blueprint.state_changes_receive_channel.receive() == BlueprintState.RUNNING
+        with trio.fail_after(1):
+            assert await blueprint.state_changes_receive_channel.receive() == BlueprintState.COMPLETED
 
     mock_execution_order_strategy_class.assert_called_once_with(blueprint._steps.copy())
 
@@ -389,7 +396,9 @@ def test_blueprint_container_dependencies_graph_with_no_circular_dependencies_ot
 
 
 @given(steps_dependency_graph=steps_dependency_graph_builder)
-@settings(suppress_health_check=(HealthCheck.too_slow,), max_examples=1000, deadline=1200000)
+@settings(
+    suppress_health_check=(HealthCheck.too_slow,), max_examples=1000, deadline=1200000
+)
 def test_execution_order(steps_dependency_graph, request):
     g = steps_dependency_graph.copy()
     cached_topsorts = request.config.cache.get(repr(g), default=[])
