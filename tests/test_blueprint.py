@@ -253,9 +253,15 @@ async def test_blueprint_start(bootsteps_graph, mock_execution_order_strategy_cl
         nursery.start_soon(blueprint.start)
 
         with trio.fail_after(1):
-            assert await blueprint.state_changes_receive_channel.receive() == BlueprintState.RUNNING
+            assert (
+                await blueprint.state_changes_receive_channel.receive()
+                == BlueprintState.RUNNING
+            )
         with trio.fail_after(1):
-            assert await blueprint.state_changes_receive_channel.receive() == BlueprintState.COMPLETED
+            assert (
+                await blueprint.state_changes_receive_channel.receive()
+                == BlueprintState.COMPLETED
+            )
 
     mock_execution_order_strategy_class.assert_called_once_with(blueprint._steps.copy())
 
@@ -270,6 +276,68 @@ async def test_blueprint_start(bootsteps_graph, mock_execution_order_strategy_cl
 
     mock_step6.assert_awaited_once_with()
     mock_step4.start.assert_awaited_once_with()
+
+
+async def test_blueprint_start_failure(
+    bootsteps_graph, mock_execution_order_strategy_class
+):
+    mock_step1 = create_mock_step("step1")
+    mock_step1.side_effect = expected_exception = RuntimeError("Expected Failure")
+    mock_step2 = create_start_stop_mock_step("step2")
+    mock_step3 = create_mock_step("step3")
+    mock_step4 = create_start_stop_mock_step("step4", mock_class=TrioCoroutineMock)
+    mock_step5 = create_mock_step("step5")
+    mock_step6 = create_mock_step("step6", spec=AsyncStep, mock_class=TrioCoroutineMock)
+
+    # We're using a parent mock simply to record the order of calls to different
+    # steps
+    m = Mock()
+    m.attach_mock(mock_step1, "mock_step1")
+    m.attach_mock(mock_step2, "mock_step2")
+    m.attach_mock(mock_step3, "mock_step3")
+    m.attach_mock(mock_step4, "mock_step4")
+    m.attach_mock(mock_step5, "mock_step5")
+    m.attach_mock(mock_step6, "mock_step6")
+
+    expected_execution_order = [
+        [m.mock_step1, m.mock_step2],
+        [m.mock_step3, m.mock_step4, m.mock_step5],
+        [m.mock_step6],
+    ]
+    mock_iterator = MagicMock()
+    mock_iterator.__iter__.return_value = expected_execution_order
+    mock_execution_order_strategy_class.return_value = mock_iterator
+
+    blueprint = Blueprint(
+        bootsteps_graph,
+        name="Test",
+        execution_order_strategy_class=mock_execution_order_strategy_class,
+    )
+
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(blueprint.start)
+
+        with trio.fail_after(1):
+            assert (
+                await blueprint.state_changes_receive_channel.receive()
+                == BlueprintState.RUNNING
+            )
+
+        with trio.fail_after(1):
+            assert await blueprint.state_changes_receive_channel.receive() == (
+                BlueprintState.FAILED,
+                expected_exception,
+            )
+
+    mock_execution_order_strategy_class.assert_called_once_with(blueprint._steps.copy())
+
+    assert_parallelized_steps_are_in_order(
+        m.method_calls, [[call.mock_step1(), call.mock_step2.start()]]
+    )
+    mock_step3.assert_not_called()
+    mock_step4.start.assert_not_called()
+    mock_step5.assert_not_called()
+    mock_step6.assert_not_called()
 
 
 def test_blueprint_container_dependencies_graph(logger):

@@ -154,22 +154,28 @@ class Blueprint:
         with START_BLUEPRINT.as_task(name=self.name):
             await self._change_blueprint_state(BlueprintState.RUNNING)
 
-            for steps in self.execution_order:
-                async with trio.open_nursery() as nursery:
-                    for step in steps:
-                        if callable(step):
-                            if inspect.isawaitable(step):
-                                nursery.start_soon(step)
+            try:
+                for steps in self.execution_order:
+                    async with trio.open_nursery() as nursery:
+                        for step in steps:
+                            if callable(step):
+                                if inspect.isawaitable(step):
+                                    nursery.start_soon(step)
+                                else:
+                                    nursery.start_soon(
+                                        trio.run_sync_in_worker_thread, step
+                                    )
                             else:
-                                nursery.start_soon(trio.run_sync_in_worker_thread, step)
-                        else:
-                            if inspect.isawaitable(step.start):
-                                nursery.start_soon(step.start)
-                            else:
-                                nursery.start_soon(
-                                    trio.run_sync_in_worker_thread, step.start
-                                )
-        await self._change_blueprint_state(BlueprintState.COMPLETED)
+                                if inspect.isawaitable(step.start):
+                                    nursery.start_soon(step.start)
+                                else:
+                                    nursery.start_soon(
+                                        trio.run_sync_in_worker_thread, step.start
+                                    )
+            except Exception as e:
+                await self._change_blueprint_state((BlueprintState.FAILED, e))
+            else:
+                await self._change_blueprint_state(BlueprintState.COMPLETED)
 
     def stop(self) -> None:
         """Stop the blueprint."""
