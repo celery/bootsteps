@@ -1,6 +1,6 @@
 """Steps are objects which define how to run a step during initialization."""
-from collections import abc
 import typing
+from collections import abc
 
 import attr
 

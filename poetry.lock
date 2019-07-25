@@ -14,6 +14,14 @@ version = "2.4"
 
 [[package]]
 category = "dev"
+description = "apipkg: namespace control and lazy-import mechanism"
+name = "apipkg"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+version = "1.5"
+
+[[package]]
+category = "dev"
 description = "Disable App Nap on OS X 10.9"
 marker = "sys_platform == \"darwin\""
 name = "appnope"
@@ -138,7 +146,6 @@ version = "0.16.dev"
 reference = "04d594ef5bd41c2af42a5158003cf1c56eb6ed0c"
 type = "git"
 url = "git@github.com:thedrow/dependencies.git"
-
 [[package]]
 category = "main"
 description = "Logging library that tells you why it happened"
@@ -159,11 +166,46 @@ version = "*"
 
 [[package]]
 category = "dev"
+description = "execnet: rapid multi-Python deployment"
+name = "execnet"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+version = "1.6.1"
+
+[package.dependencies]
+apipkg = ">=1.4"
+
+[[package]]
+category = "dev"
 description = "A platform independent file lock."
 name = "filelock"
 optional = false
 python-versions = "*"
 version = "3.0.12"
+
+[[package]]
+category = "dev"
+description = "A library for property based testing"
+name = "hypothesis"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
+version = "4.31.0"
+
+[package.dependencies]
+attrs = ">=16.0.0"
+
+[[package]]
+category = "dev"
+description = "A Hypothesis strategy for generating NetworkX graphs"
+name = "hypothesis-networkx"
+optional = false
+python-versions = "*"
+version = "0.2.0"
+
+[package.dependencies]
+hypothesis = "*"
+networkx = ">=2.0,<3.0"
+pbr = "*"
 
 [[package]]
 category = "main"
@@ -251,7 +293,15 @@ description = "More routines for operating on iterables, beyond itertools"
 name = "more-itertools"
 optional = false
 python-versions = ">=3.4"
-version = "7.1.0"
+version = "7.2.0"
+
+[[package]]
+category = "dev"
+description = "Prefetch elements from a Python generator in the background, from a separate process"
+name = "multiprocessing-generator"
+optional = false
+python-versions = "*"
+version = "0.2"
 
 [[package]]
 category = "main"
@@ -306,6 +356,14 @@ version = "2.3.4"
 
 [package.dependencies]
 six = "*"
+
+[[package]]
+category = "dev"
+description = "Python Build Reasonableness"
+name = "pbr"
+optional = false
+python-versions = "*"
+version = "5.4.1"
 
 [[package]]
 category = "dev"
@@ -398,7 +456,7 @@ description = "Python parsing module"
 name = "pyparsing"
 optional = false
 python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
-version = "2.4.0"
+version = "2.4.1.1"
 
 [[package]]
 category = "main"
@@ -448,6 +506,17 @@ pytest = ">=3.6"
 
 [[package]]
 category = "dev"
+description = "run tests in isolated forked subprocesses"
+name = "pytest-forked"
+optional = false
+python-versions = "*"
+version = "1.0.2"
+
+[package.dependencies]
+pytest = ">=3.1.0"
+
+[[package]]
+category = "dev"
 description = "Thin-wrapper around the mock package for easier use with py.test"
 name = "pytest-mock"
 optional = false
@@ -469,6 +538,20 @@ version = "0.5.2"
 async-generator = ">=1.9"
 pytest = ">=3.6"
 trio = ">=0.11"
+
+[[package]]
+category = "dev"
+description = "pytest xdist plugin for distributed testing and loop-on-failing modes"
+name = "pytest-xdist"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+version = "1.29.0"
+
+[package.dependencies]
+execnet = ">=1.1"
+pytest = ">=4.4.0"
+pytest-forked = "*"
+six = "*"
 
 [[package]]
 category = "main"
@@ -565,7 +648,7 @@ description = "Virtual Python Environment builder"
 name = "virtualenv"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
-version = "16.6.2"
+version = "16.7.1"
 
 [[package]]
 category = "dev"
@@ -604,11 +687,12 @@ version = "4.6.0"
 setuptools = "*"
 
 [metadata]
-content-hash = "e5b232b7b22892e587ca77b83646a1539eb073c19d27529a7c1cdebbc2aa6b6f"
+content-hash = "e022946b961d8440af0f55b696c9f7197c4eac883e0d273fe3361e68ece63a03"
 python-versions = ">=3.5"
 
 [metadata.hashes]
 aiocontextvars = ["885daf8261818767d8f7cbd79f9d4482d118f024b6586ef6e67980236a27bfa3", "f027372dc48641f683c559f247bd84962becaacdc9ba711d583c3871fb5652aa"]
+apipkg = ["37228cda29411948b422fae072f57e31d3396d2ee1c9783775980ee9c9990af6", "58587dd4dc3daefad0487f6d9ae32b4542b185e1c36db6993290e7c41ca2b47c"]
 appnope = ["5b26757dc6f79a3b7dc9fab95359328d5747fcb2409d331ea66d0272b90ab2a0", "8b995ffe925347a2138d7ac0fe77155e4311a0ea6d6da4f5128fe4b3cbe5ed71"]
 async-generator = ["01c7bf666359b4967d2cda0000cc2e4af16a0ae098cbffcb8472fb9e8ad6585b", "6ebb3d106c12920aaae42ccb6f787ef5eefdcdd166ea3d628fa8476abe712144"]
 asynctest = ["5da6118a7e6d6b54d83a8f7197769d046922a44d2a99c21382f0a6e4fadae676", "c27862842d15d83e6a34eb0b2866c323880eb3a75e4485b079ea11748fd77fac"]
@@ -624,7 +708,10 @@ coverage = ["007eeef7e23f9473622f7d94a3e029a45d55a92a1f083f0f3512f5ab9a669b05", 
 decorator = ["86156361c50488b84a3f148056ea716ca587df2f0de1d34750d35c21312725de", "f069f3a01830ca754ba5258fde2278454a0b5b79e0d7f5c13b3b97e57d4acff6"]
 dependencies = []
 eliot = ["667428971fc9bb636eae3fa613043ebb85389a520545726b4818f8ed8d734f26", "9f0e32a5aa678b90660c94f1cfee61b0244a6d91ace294d5ea42fb7163af73b9"]
+execnet = ["64dcdc248d007060f6f6500e7c79a4f87ee692063e3ec51e9bebf30ef2ea21d7", "dfd10a5663f94d1235e6fbee86bc53e2f89b6f15e031e7e6d9e4bb345bcd7e52"]
 filelock = ["18d82244ee114f543149c66a6e0c14e9c4f8a1044b5cdaadd0f82159d6a6ff59", "929b7d63ec5b7d6b71b0fa5ac14e030b3f70b75747cef1b10da9b879fef15836"]
+hypothesis = ["ea90434a4ad920cc39a69a4f320b9e649eb09308865677e62f5bcd3101e86d66", "ee0ad8885964ffb8a5a00c0bac76b9e0576fc033e32b38c050a3559ffd48ebf9"]
+hypothesis-networkx = ["51509fbccefeecc31c33cf57ab9fb9b9c572a483322adfae9a1e73af8b58a30d"]
 idna = ["c357b3f628cf53ae2c4c05627ecc484553142ca23264e593d327bcde5e9c3407", "ea8b7f6188e6fa117537c3df7da9fc686d485087abf6ac197f9c46432f7e4a3c"]
 immutables = ["10861f2a2b86139f0c91d5073392d76117f37e84f912dc47c943c23a64008cc7", "3e23eeb4bc55d57b2a97bef4c1a2891bbb731050b4167c855545797d45e84e45", "4373876879f147986808f71e6ca02380192a279e8b8d45832f6fed4e7f717562", "46f9122da033fecf84d7f4c6257aec780f370b20f3ce6bc521702b63ee3d99f7", "5104db6102e53702af45c6b0af36e45a80970123b11a80c14e0fce48444cdbe3", "59274bcb631f4fdc9731e9a4a96d16d96b3a17e29fd5e46516518f38406f678f", "65a9c624e50ca5c50464dbf432996b5c4f056a411bcff5690ef4cab59f913f99", "b64e0672497b884d21170ca61c693da8488d77f043650efa7911378cbbad0f2c", "b70655dba00742b033310933066a2202e1cfbbb0f63841b4597cd8787974b242", "c3d8c238a6f9b60355578579563773348674b6da63c1a0d7394384ed341f3d41", "cd66bcd11b6a1c1a80fb8d90e25870ff2d5c705ab5eb9666355a33d3fef6ac70", "d59310fc4f97c1ff8c3660cb98032db266ac0c285a86ca7a512e8e84a95f44c9", "d71d1c822498646143270580dd6f743bb31ab89ae0ded8b2307c356d3a00f1c0", "f53da698b42db83cfb1f5073560838051430798c8d8e34a57a27031edbc3041d", "f958ba15745e30d3a38e3c9fcead8496037135bb21c78c0f925c104abba3a6fa", "ff95e2aa618eed1a0ef4479938f18f3522c89562b9bbb59d677597c0337569dd"]
 importlib-metadata = ["6dfd58dfe281e8d240937776065dd3624ad5469c835248219bd16cf2e12dbeb7", "cb6ee23b46173539939964df59d3d72c3e0c1b5d54b84f1d8a7e912fe43612db"]
@@ -632,12 +719,14 @@ ipython = ["11067ab11d98b1e6c7f0993506f7a5f8a91af420f7e82be6575fcb7a6ca372a0", "
 ipython-genutils = ["72dd37233799e619666c9f639a9da83c34013a73e8bbc79a7a6348d93c61fab8", "eb2e116e75ecef9d4d228fdc66af54269afa26ab4463042e33785b887c628ba8"]
 isort = ["54da7e92468955c4fceacd0c86bd0ec997b0e1ee80d97f67c35a78b719dccab1", "6e811fcb295968434526407adb8796944f1988c5b65e8139058f2014cbe100fd"]
 jedi = ["53c850f1a7d3cfcd306cc513e2450a54bdf5cacd7604b74e42dd1f0758eaaf36", "e07457174ef7cb2342ff94fa56484fe41cec7ef69b0059f01d3f812379cb6f7c"]
-more-itertools = ["3ad685ff8512bf6dc5a8b82ebf73543999b657eded8c11803d9ba6b648986f4d", "8bb43d1f51ecef60d81854af61a3a880555a14643691cc4b64a6ee269c78f09a"]
+more-itertools = ["409cd48d4db7052af495b09dec721011634af3753ae1ef92d2b32f73a745f832", "92b8c4b06dac4f0611c0729b2f2ede52b2e1bac1ab48f089c7ddc12e26bb60c4"]
+multiprocessing-generator = ["ec68ae1ad4f79290c540ea370e8dc3aa281eb3a974fddbdfc03ab22828f3b7e8"]
 networkx = ["8311ddef63cf5c5c5e7c1d0212dd141d9a1fe3f474915281b73597ed5f1d4e3d"]
 outcome = ["7357af9ba2a08fdff8c742818909c5d146fc1fe75aee4bddadaa4f8ad726d262", "9d58c05db36a900ce60c6da0167d76e28869f64b338d60fa3a61841cfa54ac71"]
 packaging = ["0c98a5d0be38ed775798ece1b9727178c4469d9c3b4ada66e8e6b7849f8732af", "9e1cbf8c12b1f1ce0bb5344b8d7ecf66a6f8a6e91bcb0c84593ed6d3ab5c4ab3"]
 parso = ["63854233e1fadb5da97f2744b6b24346d2750b85965e7e399bec1620232797dc", "666b0ee4a7a1220f65d367617f2cd3ffddff3e205f3f16a0284df30e774c2a9c"]
 pathlib2 = ["2156525d6576d21c4dcaddfa427fae887ef89a7a9de5cbfe0728b3aafa78427e", "446014523bb9be5c28128c4d2a10ad6bb60769e78bd85658fe44a450674e0ef8"]
+pbr = ["0ca44dc9fd3b04a22297c2a91082d8df2894862e8f4c86a49dac69eae9e85ca0", "4aed6c1b1fa5020def0f22aed663d87b81bb3235f112490b07d2643d7a98c5b5"]
 pexpect = ["2094eefdfcf37a1fdbfb9aa090862c1a4878e5c7e0e7e7088bdb511c558e5cd1", "9e2c1fd0e6ee3a49b28f95d4b33bc389c89b20af6a1255906e90ff1262ce62eb"]
 pickleshare = ["87683d47965c1da65cdacaf31c8441d12b8044cdec9aca500cd78fc2c683afca", "9649af414d74d4df115d5d718f82acb59c9d418196b7b4290ed47a12ce62df56"]
 pluggy = ["0825a152ac059776623854c1543d65a4ad408eb3d33ee114dff91e57ec6ae6fc", "b9817417e95936bf75d85d3f8767f7df6cdde751fc40aed3bb3074cbcb77757c"]
@@ -647,12 +736,14 @@ py = ["64f65755aee5b381cea27766a3a147c3f15b9b6b9ac88676de66ba2ae36793fa", "dc639
 pycodestyle = ["95a2219d12372f05704562a14ec30bc76b05a5b297b21a5dfe3f6fac3491ae56", "e40a936c9a450ad81df37f549d676d127b1b66000a6c500caa2b085bc0ca976c"]
 pycparser = ["a988718abfad80b6b157acce7bf130a30876d27603738ac39f140993246b25b3"]
 pygments = ["71e430bc85c88a430f000ac1d9b331d2407f681d6f6aec95e8bcfbc3df5b0127", "881c4c157e45f30af185c1ffe8d549d48ac9127433f2c380c24b84572ad66297"]
-pyparsing = ["1873c03321fc118f4e9746baf201ff990ceb915f433f23b395f5580d1840cb2a", "9b6323ef4ab914af344ba97510e966d64ba91055d6b9afa6b30799340e89cc03"]
+pyparsing = ["43c5486cefefa536c9aab528881c992328f020eefe4f6d06332449c365218580", "d6c5ffe9d0305b9b977f7a642d36b9370954d1da7ada4c62393382cbadad4265"]
 pyrsistent = ["50cffebc87ca91b9d4be2dcc2e479272bcb466b5a0487b6c271f7ddea6917e14"]
 pytest = ["6ef6d06de77ce2961156013e9dff62f1b2688aa04d0dc244299fe7d67e09370d", "a736fed91c12681a7b34617c8fcefe39ea04599ca72c608751c31d89579a3f77"]
 pytest-cov = ["2b097cde81a302e1047331b48cadacf23577e431b61e9c6f49a1170bbe3d3da6", "e00ea4fdde970725482f1f35630d12f074e121a23801aabf2ae154ec6bdd343a"]
+pytest-forked = ["5fe33fbd07d7b1302c95310803a5e5726a4ff7f19d5a542b7ce57c76fed8135f", "d352aaced2ebd54d42a65825722cb433004b4446ab5d2044851d9cc7a00c9e38"]
 pytest-mock = ["43ce4e9dd5074993e7c021bb1c22cbb5363e612a2b5a76bc6d956775b10758b7", "5bf5771b1db93beac965a7347dc81c675ec4090cb841e49d9d34637a25c30568"]
 pytest-trio = ["6a50e9585ebbb0ce9ae83d33bde7865952d76c4d4b8759a0345a551f113d468c", "848c2ba632d9c2d4e2770fe4eb149c8db69ecefc9239e2e6f77c41d9a2393d5e"]
+pytest-xdist = ["3489d91516d7847db5eaecff7a2e623dba68984835dbe6cedb05ae126c4fb17f", "501795cb99e567746f30fe78850533d4cd500c93794128e6ab9988e92a17b1f8"]
 six = ["3350809f0555b11f552448330d0b52d5f24c91a322ea4a15ef22629740f3761c", "d16a0141ec1a18405cd4ce8b4613101da75da0e9a7aec5bdd4fa804d0e0eba73"]
 sniffio = ["20ed6d5b46f8ae136d00b9dcb807615d83ed82ceea6b2058cecb696765246da5", "8e3810100f69fe0edd463d02ad407112542a11ffdc29f67db2bf3771afb87a21"]
 sortedcontainers = ["974e9a32f56b17c1bac2aebd9dcf197f3eb9cd30553c5852a3187ad162e1a03a", "d9e96492dd51fae31e60837736b38fe42a187b5404c16606ff7ee7cd582d4c60"]
@@ -660,7 +751,7 @@ toml = ["229f81c57791a41d65e399fc06bf0848bab550a9dfd5ed66df18ce5f05e73d5c", "235
 tox = ["dab0b0160dd187b654fc33d690ee1d7bf328bd5b8dc6ef3bb3cc468969c659ba", "ee35ffce74933a6c6ac10c9a0182e41763140a5a5070e21b114feca56eaccdcd"]
 traitlets = ["9c4bd2d267b7153df9152698efb1050a5d84982d3384a37b2c1f7723ba3e7835", "c6cb5e6f57c5a9bdaa40fa71ce7b4af30298fbab9ece9815b5d995ab6217c7d9"]
 trio = ["3796774aedbf5be581c68f98c79b565654876de6e9a01c6a95e3ec6cd4e4b4c3", "b0c03d312c300a947e54e204be88255992434e824374b7d3cc886876dab9a542"]
-virtualenv = ["861bbce3a418110346c70f5c7a696fdcf23a261424e1d28aa4f9362fc2ccbc19", "ba8ce6a961d842320681fb90a3d564d0e5134f41dacd0e2bae7f02441dde2d52"]
+virtualenv = ["5fe3719f0185cc6d4e7ebb2d3b73bfadbebaaf0afa73fb312ec8b193ef8335b3", "d0158c9784570aab78cbb1e4dc59938de128d38e20e5271d9997ada4b417012c"]
 wcwidth = ["3df37372226d6e63e1b1e1eda15c594bca98a22d33a23832a90998faa96bc65e", "f4ebe71925af7b40a864553f761ed559b43544f8f71746c2d756c7fe788ade7c"]
 win-unicode-console = ["d4142d4d56d46f449d6f00536a73625a871cba040f0bc1a2e305a04578f07d1e"]
 zipp = ["4970c3758f4e89a7857a973b1e2a5d75bcdc47794442f2e2dd4fe8e0466e809a", "8a5712cfd3bb4248015eb3b0b3c54a5f6ee3f2425963ef2a0125b8bc40aafaec"]

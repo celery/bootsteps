@@ -1,16 +1,101 @@
-import inspect
+import itertools
 from unittest.mock import call
 
 import pytest
-from asynctest import MagicMock, Mock, NonCallableMock, CoroutineMock
+from asynctest import CoroutineMock, MagicMock, Mock, NonCallableMock
 from eliot.testing import LoggedAction
-from networkx import DiGraph
+from hypothesis import HealthCheck, given, settings, strategies as st
+from hypothesis_networkx import graph_builder
+from multiprocessing_generator import ParallelGenerator
+from networkx import (
+    DiGraph,
+    all_topological_sorts,
+    is_directed_acyclic_graph,
+    is_isomorphic,
+)
 
-from bootsteps import Blueprint, BlueprintContainer, Step, AsyncStep
+from bootsteps import AsyncStep, Blueprint, BlueprintContainer, Step
 from bootsteps.blueprint import BlueprintState, ExecutionOrder
-
-
 from tests.mocks import TrioCoroutineMock
+
+
+class DebuggableDiGraph(DiGraph):
+    def __repr__(self):
+        return f"""
+Nodes: {self.nodes}
+Edges: {self.edges}
+        """
+
+    def __eq__(self, other):
+        return self.nodes == other.nodes and self.edges == other.edges
+
+
+@st.composite
+def non_isomorphic_graph_builder(
+    draw,
+    previous_graphs=None,
+    node_data=st.fixed_dictionaries({}),
+    edge_data=st.fixed_dictionaries({}),
+    node_keys=None,
+    min_nodes=0,
+    max_nodes=25,
+    min_edges=0,
+    max_edges=None,
+    graph_type=DiGraph,
+    self_loops=False,
+    connected=True,
+):
+    if not isinstance(previous_graphs, list):
+        raise ValueError("previous_graphs must be a list")
+
+    strategy = graph_builder(
+        node_data=node_data,
+        edge_data=edge_data,
+        node_keys=node_keys,
+        min_nodes=min_nodes,
+        max_nodes=max_nodes,
+        min_edges=min_edges,
+        max_edges=max_edges,
+        graph_type=graph_type,
+        self_loops=self_loops,
+        connected=connected,
+    )
+    graph = draw(strategy)
+    retries = 0
+    while any(is_isomorphic(graph, G) for G in previous_graphs):
+        graph = draw(strategy)
+        retries += 1
+        if retries % 2 == 0:
+            min_nodes = min(min_nodes + 2, max_nodes)
+            min_edges = min_edges + 2
+            strategy = graph_builder(
+                node_data=node_data,
+                edge_data=edge_data,
+                node_keys=node_keys,
+                min_nodes=min_nodes,
+                max_nodes=max_nodes,
+                min_edges=min_edges,
+                max_edges=max_edges,
+                graph_type=graph_type,
+                self_loops=self_loops,
+                connected=connected,
+            )
+
+    previous_graphs.append(graph)
+
+    return graph
+
+
+previous_graphs = []
+steps_dependency_graph_builder = non_isomorphic_graph_builder(
+    graph_type=DebuggableDiGraph,
+    min_nodes=1,
+    max_nodes=10,
+    min_edges=0,
+    self_loops=False,
+    connected=True,
+    previous_graphs=previous_graphs,
+).filter(lambda g: is_directed_acyclic_graph(g))
 
 
 @pytest.fixture
@@ -53,7 +138,12 @@ def create_mock_step(
 
 
 def create_start_stop_mock_step(
-    name, requires=set(), required_by=set(), last=False, include_if=True, mock_class=Mock
+    name,
+    requires=set(),
+    required_by=set(),
+    last=False,
+    include_if=True,
+    mock_class=Mock,
 ):
     mock_step = NonCallableMock(name=name, spec=Step)
     mock_step.requires = requires
@@ -133,6 +223,8 @@ async def test_blueprint_start(bootsteps_graph, mock_execution_order_strategy_cl
     mock_step5 = create_mock_step("step5")
     mock_step6 = create_mock_step("step6", spec=AsyncStep, mock_class=TrioCoroutineMock)
 
+    # We're using a parent mock simply to record the order of calls to different
+    # steps
     m = Mock()
     m.attach_mock(mock_step1, "mock_step1")
     m.attach_mock(mock_step2, "mock_step2")
@@ -296,146 +388,39 @@ def test_blueprint_container_dependencies_graph_with_no_circular_dependencies_ot
         pytest.fail("Circular dependencies found")
 
 
-# async def test_start_without_last_step(logger):
-#     # We're using a parent mock simply to record the order of calls to different
-#     # steps
-#     m = Mock()
-#
-#     mock_step1 = create_mock_step("step1")
-#     mock_step2 = create_mock_step("step2", requires={mock_step1})
-#     mock_step3 = create_mock_step("step3", requires={mock_step1})
-#     mock_step4 = create_mock_step("step4")
-#     mock_step5 = create_mock_step("step5")
-#
-#     m.attach_mock(mock_step1, "mock_step1")
-#     m.attach_mock(mock_step2, "mock_step2")
-#     m.attach_mock(mock_step3, "mock_step3")
-#     m.attach_mock(mock_step4, "mock_step4")
-#     m.attach_mock(mock_step5, "mock_step5")
-#
-#     mock_bootsteps = [
-#         m.mock_step4,
-#         m.mock_step5,
-#         m.mock_step1,
-#         m.mock_step2,
-#         m.mock_step3,
-#     ]
-#
-#     class MyBlueprintContainer(BlueprintContainer):
-#         bootsteps = mock_bootsteps
-#
-#     await MyBlueprintContainer.blueprint.start()
-#
-#     m.assert_has_calls(
-#         [
-#             call.mock_step4,
-#             call.mock_step5,
-#             call.mock_step1,
-#             call.mock_step2,
-#             call.mock_step3,
-#         ]
-#     )
-#
-#     logged_tasks = LoggedAction.of_type(logger.messages, "bootsteps:blueprint:start")
-#     logged_task = logged_tasks[0]
-#     assert_log_message_field_equals(
-#         logged_task.start_message, "name", MyBlueprintContainer.blueprint.name
-#     )
-#     assert_logged_action_succeeded(logged_task)
-#
-#     logged_actions = LoggedAction.of_type(
-#         logger.messages, "bootsteps:blueprint:resolving_bootsteps_execution_order"
-#     )
-#     assert logged_task.children == logged_actions
-#     logged_action = logged_actions[0]
-#
-#     assert_log_message_field_equals(
-#         logged_action.start_message, "name", MyBlueprintContainer.blueprint.name
-#     )
-#     assert_logged_action_succeeded(logged_action)
-#     assert_log_message_field_equals(
-#         logged_action.end_message, "name", MyBlueprintContainer.blueprint.name
-#     )
-#     assert_log_message_field_equals(
-#         logged_action.end_message, "bootsteps_execution_order", mock_bootsteps
-#     )
-#     assert_log_message_field_equals(logged_action.end_message, "parallelized_steps", 5)
-#
-#
-# async def test_start_with_last_step(logger):
-#     # We're using a parent mock simply to record the order of calls to different
-#     # steps
-#     m = Mock()
-#
-#     mock_step1 = create_mock_step("step1")
-#     mock_step2 = create_mock_step("step2", requires={mock_step1})
-#     mock_step3 = create_mock_step("step3", last=True)
-#     mock_step4 = create_mock_step("step4")
-#     mock_step5 = create_mock_step("step5")
-#
-#     m.attach_mock(mock_step1, "mock_step1")
-#     m.attach_mock(mock_step2, "mock_step2")
-#     m.attach_mock(mock_step3, "mock_step3")
-#     m.attach_mock(mock_step4, "mock_step4")
-#     m.attach_mock(mock_step5, "mock_step5")
-#
-#     mock_bootsteps = [
-#         m.mock_step4,
-#         m.mock_step5,
-#         m.mock_step1,
-#         m.mock_step2,
-#         m.mock_step3,
-#     ]
-#
-#     class MyBlueprintContainer(BlueprintContainer):
-#         bootsteps = mock_bootsteps
-#
-#     await MyBlueprintContainer.blueprint.start()
-#
-#     m.assert_has_calls(
-#         [
-#             call.mock_step4,
-#             call.mock_step5,
-#             call.mock_step1,
-#             call.mock_step2,
-#             call.mock_step3,
-#         ]
-#     )
-#
-#     logged_tasks = LoggedAction.of_type(logger.messages, "bootsteps:blueprint:start")
-#     logged_task = logged_tasks[0]
-#     assert_log_message_field_equals(
-#         logged_task.start_message, "name", MyBlueprintContainer.blueprint.name
-#     )
-#     assert_logged_action_succeeded(logged_task)
-#
-#     logged_actions = LoggedAction.of_type(
-#         logger.messages, "bootsteps:blueprint:resolving_bootsteps_execution_order"
-#     )
-#     assert logged_task.children == logged_actions
-#     logged_action = logged_actions[0]
-#
-#     assert_log_message_field_equals(
-#         logged_action.start_message, "name", MyBlueprintContainer.blueprint.name
-#     )
-#     assert_logged_action_succeeded(logged_action)
-#     assert_log_message_field_equals(
-#         logged_action.end_message, "name", MyBlueprintContainer.blueprint.name
-#     )
-#     assert_log_message_field_equals(
-#         logged_action.end_message, "bootsteps_execution_order", mock_bootsteps
-#     )
-#     assert_log_message_field_equals(logged_action.end_message, "parallelized_steps", 3)
-#
-#
-# async def test_call_step_start():
-#     mock_step1 = create_start_stop_mock_step("step1")
-#
-#     mock_bootsteps = {mock_step1}
-#
-#     class MyBlueprintContainer(BlueprintContainer):
-#         bootsteps = mock_bootsteps
-#
-#     await MyBlueprintContainer.blueprint.start()
-#
-#     mock_step1.start.assert_called_once()
+@given(steps_dependency_graph=steps_dependency_graph_builder)
+@settings(suppress_health_check=(HealthCheck.too_slow,), max_examples=1000, deadline=1200000)
+def test_execution_order(steps_dependency_graph, request):
+    g = steps_dependency_graph.copy()
+    cached_topsorts = request.config.cache.get(repr(g), default=[])
+    expected = (
+        cached_topsorts
+        if cached_topsorts
+        else ParallelGenerator(
+            (tuple(reversed(topsort)) for topsort in all_topological_sorts(g)),
+            max_lookahead=2,
+        )
+    )
+    execution_order = ExecutionOrder(steps_dependency_graph)
+
+    for steps in execution_order:
+        assert all(step not in steps_dependency_graph.nodes for step in steps)
+
+    actual = tuple(itertools.chain.from_iterable(execution_order))
+
+    if cached_topsorts:
+        assert any(
+            list(actual) == topsort for topsort in cached_topsorts
+        ), f"{actual} not found in {cached_topsorts}"
+    else:
+        with expected as topsorts:
+            done = False
+            for topsort in topsorts:
+                cached_topsorts.append(topsort)
+
+                if actual == topsort:
+                    done = True
+                    break
+
+            request.config.cache.set(repr(g), tuple(cached_topsorts))
+            assert done

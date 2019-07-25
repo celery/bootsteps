@@ -14,7 +14,7 @@ import trio
 from cached_property import cached_property
 from dependencies import Injector, value
 from eliot import ActionType, Field, MessageType
-from networkx import DiGraph, is_directed_acyclic_graph, strongly_connected_components
+from networkx import DiGraph, is_directed_acyclic_graph
 from networkx.readwrite import json_graph
 
 from bootsteps.steps import Step
@@ -83,58 +83,48 @@ class BlueprintState(Enum):
 
 @attr.s(auto_attribs=True, cmp=False, slots=True)
 class ExecutionOrder(Iterator):
-    _steps_depenency_graph: DiGraph = attr.ib(default=attr.NOTHING)
+    _steps_dependency_graph: DiGraph = attr.ib(default=attr.NOTHING)
     _execution_order: typing.List[Step] = attr.ib(
         default=attr.Factory(list), init=False
     )
-    _parallelized_steps: int = attr.ib(default=0, init=False)
     _steps_without_dependencies: typing.List[Step] = attr.ib(
         default=attr.Factory(list), init=False
     )
 
-    def steps_without_dependencies(self):
-        return [
-            step
-            for step in self._steps_depenency_graph
-            if not any(self._steps_depenency_graph.neighbors(step))
-        ]
-
-    def mark_as_done(self, steps):
-        self._steps_depenency_graph.remove_nodes_from(steps)
-        self._execution_order.extend(steps)
-
-    def count_parallelized_steps(self, steps):
-        if len(steps) > 1:
-            self._parallelized_steps += len(steps)
-
-    def __next__(self):
-        steps = self._steps_depenency_graph
-
-        # Continue looping while the graph is not empty.
-        if not steps.order():
-            raise StopIteration
-
-        # Find all the bootsteps without dependencies.
+    def __attrs_post_init__(self):
         self._steps_without_dependencies = self.steps_without_dependencies()
 
-        if not self._steps_without_dependencies:
-            # Find the bootstep(s) that have the most dependencies
-            # and execute them so that they'll be free for parallel execution.
-            most_dependent_steps = max(strongly_connected_components(steps))
-            self.count_parallelized_steps(most_dependent_steps)
-            self.mark_as_done(most_dependent_steps)
-            # Find all the bootsteps without dependencies.
-            self._steps_without_dependencies = self.steps_without_dependencies()
-            return most_dependent_steps
-        else:
-            self.count_parallelized_steps(self._steps_without_dependencies)
-            # Execute all nodes without dependencies since they can now run.
-            self.mark_as_done(self._steps_without_dependencies)
-            self._steps_without_dependencies = self.steps_without_dependencies()
-            return self._steps_without_dependencies
+    def steps_without_dependencies(self):
+        return {
+            step
+            for step in self._steps_dependency_graph
+            if not any(self._steps_dependency_graph.neighbors(step))
+        }
+
+    def mark_as_done(self, steps):
+        self._steps_dependency_graph.remove_nodes_from(steps)
+        self._execution_order.append(steps)
+
+    def is_steps_dependency_graph_empty(self) -> bool:
+        return not self._steps_dependency_graph.order()
+
+    def __next__(self):
+        assert is_directed_acyclic_graph(self._steps_dependency_graph)
+
+        # Continue looping while the graph is not empty.
+        if self.is_steps_dependency_graph_empty():
+            raise StopIteration
+
+        # Execute all nodes without dependencies since they can now run.
+        steps = self._steps_without_dependencies
+        self.mark_as_done(steps)
+
+        self._steps_without_dependencies = self.steps_without_dependencies()
+
+        return steps
 
     def __iter__(self):
-        return self._execution_order if self._execution_order else self
+        return iter(self._execution_order) if self._execution_order else self
 
 
 @attr.s(auto_attribs=True, cmp=False)
