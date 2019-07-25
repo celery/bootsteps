@@ -467,7 +467,9 @@ async def test_blueprint_stop_failure(
     mock_step6.assert_not_called()
 
 
-async def test_blueprint_async_context_manager():
+async def test_blueprint_async_context_manager(
+    bootsteps_graph, mock_execution_order_strategy_class
+):
     mock_step1 = create_mock_step("step1")
     mock_step2 = create_start_stop_mock_step("step2")
     mock_step3 = create_mock_step("step3")
@@ -491,6 +493,8 @@ async def test_blueprint_async_context_manager():
         [m.mock_step6],
     ]
     mock_iterator = MagicMock()
+    reversed_func = Mock(return_value=reversed(expected_execution_order))
+    mock_iterator.__reversed__ = reversed_func
     mock_iterator.__iter__.return_value = expected_execution_order
     mock_execution_order_strategy_class.return_value = mock_iterator
 
@@ -511,6 +515,32 @@ async def test_blueprint_async_context_manager():
                 await blueprint.state_changes_receive_channel.receive()
                 == BlueprintState.COMPLETED
             )
+
+    with trio.fail_after(1):
+        assert (
+            await blueprint.state_changes_receive_channel.receive()
+            == BlueprintState.TERMINATING
+        )
+    with trio.fail_after(1):
+        assert (
+            await blueprint.state_changes_receive_channel.receive()
+            == BlueprintState.TERMINATED
+        )
+
+    assert_parallelized_steps_are_in_order(
+        m.method_calls,
+        [
+            [call.mock_step1(), call.mock_step2.start()],
+            [call.mock_step3(), call.mock_step4.start(), call.mock_step5()],
+            [call.mock_step6()],
+            [call.mock_step4.stop()],
+            [call.mock_step2.stop()],
+        ],
+    )
+
+    mock_step6.assert_awaited_once_with()
+    mock_step4.start.assert_awaited_once_with()
+    mock_step4.stop.assert_awaited_once_with()
 
 
 def test_blueprint_container_dependencies_graph(logger):
