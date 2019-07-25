@@ -8,6 +8,7 @@ import inspect
 import typing
 from collections import abc
 from enum import Enum
+import math
 
 import attr
 import trio
@@ -141,7 +142,7 @@ class Blueprint:
     def __attrs_post_init__(self):
         """Initialize the state changes memory channel."""
         self.state_changes_send_channel, self.state_changes_receive_channel = trio.open_memory_channel(
-            0
+            math.inf
         )
 
     async def _change_blueprint_state(self, state: BlueprintState) -> None:
@@ -150,7 +151,7 @@ class Blueprint:
             nursery.start_soon(self.state_changes_send_channel.send, state)
 
     async def start(self) -> None:
-        """Start executing the blueprint."""
+        """Execte the blueprint's steps start method."""
         with START_BLUEPRINT.as_task(name=self.name):
             await self._change_blueprint_state(BlueprintState.RUNNING)
 
@@ -177,20 +178,25 @@ class Blueprint:
             else:
                 await self._change_blueprint_state(BlueprintState.COMPLETED)
 
-    def stop(self) -> None:
-        """Stop the blueprint."""
+    async def stop(self) -> None:
+        """Execte the blueprint's steps stop method."""
 
     @cached_property
-    def execution_order(self):
-        """Calculate the order of execution of steps.
-
-        The algorithm searches for nodes with no neighbors, that is steps without dependencies
-        and schedules all of them for execution at once.
-
-        If there are none, the algorithm attempts to search a step or a number of steps
-        which most steps are dependent on and executes it.
-        """
+    def execution_order(self) -> typing.Iterator:
+        """Initialize the execution order iterator."""
         return self.execution_order_strategy_class(self._steps.copy())
+
+    async def __aenter__(self) -> 'Blueprint':
+        """Start the blueprint."""
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(self.start)
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> 'Blueprint':
+        """Stop the blueprint."""
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(self.stop)
+        return self
 
 
 class BlueprintContainer(Injector):
