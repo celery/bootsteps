@@ -7,6 +7,9 @@ class TrioCoroutineMock(CoroutineMock):
     async def _mock_call(_mock_self, *args, **kwargs):
         result = super()._mock_call(*args, **kwargs)
 
+        if isinstance(_mock_self.side_effect, BaseException):
+            raise _mock_self.side_effect
+
         _call = _mock_self.call_args
 
         try:

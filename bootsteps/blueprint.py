@@ -51,6 +51,10 @@ START_BLUEPRINT = ActionType(
     "bootsteps:blueprint:start", [Field("name", str, "The name of the blueprint")], []
 )
 
+STOP_BLUEPRINT = ActionType(
+    "bootsteps:blueprint:stop", [Field("name", str, "The name of the blueprint")], []
+)
+
 RESOLVING_BOOTSTEPS_EXECUTION_ORDER = ActionType(
     "bootsteps:blueprint:resolving_bootsteps_execution_order",
     [Field("name", str, "The name of the blueprint")],
@@ -180,19 +184,37 @@ class Blueprint:
 
     async def stop(self) -> None:
         """Execte the blueprint's steps stop method."""
+        with STOP_BLUEPRINT.as_task(name=self.name):
+            await self._change_blueprint_state(BlueprintState.TERMINATING)
+
+            try:
+                for steps in reversed(self.execution_order):
+                    async with trio.open_nursery() as nursery:
+                        for step in steps:
+                            if hasattr(step, "stop"):
+                                if inspect.isawaitable(step.stop):
+                                    nursery.start_soon(step.stop)
+                                else:
+                                    nursery.start_soon(
+                                        trio.run_sync_in_worker_thread, step.stop
+                                    )
+            except Exception as e:
+                await self._change_blueprint_state((BlueprintState.FAILED, e))
+            else:
+                await self._change_blueprint_state(BlueprintState.TERMINATED)
 
     @cached_property
     def execution_order(self) -> typing.Iterator:
         """Initialize the execution order iterator."""
         return self.execution_order_strategy_class(self._steps.copy())
 
-    async def __aenter__(self) -> 'Blueprint':
+    async def __aenter__(self) -> "Blueprint":
         """Start the blueprint."""
         async with trio.open_nursery() as nursery:
             nursery.start_soon(self.start)
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> 'Blueprint':
+    async def __aexit__(self, exc_type, exc, tb) -> "Blueprint":
         """Stop the blueprint."""
         async with trio.open_nursery() as nursery:
             nursery.start_soon(self.stop)
