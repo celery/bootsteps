@@ -31,6 +31,7 @@ hypothesis = "^4.28"
 pytest-xdist = "^1.29"
 multiprocessing_generator = "^0.2.0"
 hypothesis-networkx = "^0.2.0"
+pytest-ordering = "^0.6.0"
 
 [build-system]
 requires = ["poetry>=0.12"]

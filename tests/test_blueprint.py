@@ -670,6 +670,7 @@ def test_blueprint_container_dependencies_graph_with_no_circular_dependencies_ot
 @settings(
     suppress_health_check=(HealthCheck.too_slow,), max_examples=1000, deadline=1200000
 )
+@pytest.mark.run(order=1)
 def test_execution_order(steps_dependency_graph, request):
     g = steps_dependency_graph.copy()
     cached_topsorts = request.config.cache.get(repr(g), default=[])
