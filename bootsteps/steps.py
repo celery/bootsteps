@@ -17,9 +17,6 @@ class Step(abc.Callable):
         """Conditionally execute this step according to some criteria."""
         return True
 
-    def __call__(self) -> None:
-        pass
-
 
 @attr.s(auto_attribs=True, cmp=True)
 class AsyncStep(abc.Callable):
@@ -32,6 +29,3 @@ class AsyncStep(abc.Callable):
     def include_if(self) -> bool:
         """Conditionally execute this step according to some criteria."""
         return True
-
-    async def __call__(self):
-        pass
