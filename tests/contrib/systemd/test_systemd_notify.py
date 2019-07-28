@@ -8,7 +8,7 @@ from bootsteps.contrib.systemd import systemd_notify
 
 @pytest.fixture
 def systemd_notify_step():
-    return systemd_notify.SystemDNotify({"READY": 1})
+    return systemd_notify.SystemDNotify(state={"READY": 1})
 
 
 @pytest.fixture
@@ -22,8 +22,13 @@ def ensure_systemd_python_library_is_not_installed(monkeypatch):
 
 
 @pytest.fixture
-def ensure_systemd_python_library_is_installed(monkeypatch):
-    monkeypatch.setattr(systemd_notify, "notify", Mock())
+def systemd_notify_mock():
+    return Mock()
+
+
+@pytest.fixture
+def ensure_systemd_python_library_is_installed(monkeypatch, systemd_notify_mock):
+    monkeypatch.setattr(systemd_notify, "notify", systemd_notify_mock)
 
 
 def test_initialization():
@@ -68,3 +73,10 @@ def test_include_if_should_be_true_when_systemd_library_is_installed(
     ensure_systemd_python_library_is_installed,
 ):
     assert systemd_notify_step.include_if() is True
+
+
+def test_step_call(
+    systemd_notify_step, ensure_systemd_python_library_is_installed, systemd_notify_mock
+):
+    systemd_notify_step()
+    systemd_notify_mock.assert_called_once_with(status="READY=1")

@@ -21,7 +21,9 @@ class SystemDNotify(Step):
 
     def __call__(self) -> None:
         """Update the SystemD service's status."""
-        pass
+        notify(
+            status="\n".join(f"{name}={value}" for name, value in self.state.items())
+        )
 
     def include_if(self) -> bool:
         """Only execute if the NOTIFY_SOCKET environment variable is set and if the systemd library is installed."""
