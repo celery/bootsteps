@@ -594,6 +594,14 @@ python-versions = "*"
 version = "2.1.0"
 
 [[package]]
+category = "main"
+description = "Python interface for libsystemd"
+name = "systemd-python"
+optional = false
+python-versions = "*"
+version = "234"
+
+[[package]]
 category = "dev"
 description = "Python Library for Tom's Obvious, Minimal Language"
 name = "toml"
@@ -697,8 +705,11 @@ version = "4.6.0"
 [package.dependencies]
 setuptools = "*"
 
+[extras]
+systemd = ["systemd-python"]
+
 [metadata]
-content-hash = "a86b9c8366999b6f48470d7c60598173330f86cfecdae0b1d7af7acde4e8352d"
+content-hash = "b9217650e784dbc611ad013b45f901118cb67d8c4152c4ee1add62c80ffca419"
 python-versions = "^3.5"
 
 [metadata.hashes]
@@ -759,6 +770,7 @@ pytest-xdist = ["3489d91516d7847db5eaecff7a2e623dba68984835dbe6cedb05ae126c4fb17
 six = ["3350809f0555b11f552448330d0b52d5f24c91a322ea4a15ef22629740f3761c", "d16a0141ec1a18405cd4ce8b4613101da75da0e9a7aec5bdd4fa804d0e0eba73"]
 sniffio = ["20ed6d5b46f8ae136d00b9dcb807615d83ed82ceea6b2058cecb696765246da5", "8e3810100f69fe0edd463d02ad407112542a11ffdc29f67db2bf3771afb87a21"]
 sortedcontainers = ["974e9a32f56b17c1bac2aebd9dcf197f3eb9cd30553c5852a3187ad162e1a03a", "d9e96492dd51fae31e60837736b38fe42a187b5404c16606ff7ee7cd582d4c60"]
+systemd-python = ["fd0e44bf70eadae45aadc292cb0a7eb5b0b6372cd1b391228047d33895db83e7"]
 toml = ["229f81c57791a41d65e399fc06bf0848bab550a9dfd5ed66df18ce5f05e73d5c", "235682dd292d5899d361a811df37e04a8828a5b1da3115886b73cf81ebc9100e", "f1db651f9657708513243e61e6cc67d101a39bad662eaa9b5546f789338e07a3"]
 tox = ["dab0b0160dd187b654fc33d690ee1d7bf328bd5b8dc6ef3bb3cc468969c659ba", "ee35ffce74933a6c6ac10c9a0182e41763140a5a5070e21b114feca56eaccdcd"]
 traitlets = ["9c4bd2d267b7153df9152698efb1050a5d84982d3384a37b2c1f7723ba3e7835", "c6cb5e6f57c5a9bdaa40fa71ce7b4af30298fbab9ece9815b5d995ab6217c7d9"]

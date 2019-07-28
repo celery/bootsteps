@@ -5,10 +5,10 @@ All non-dependent Bootsteps will be executed in parallel.
 """
 
 import inspect
+import math
 import typing
 from collections import abc
 from enum import Enum
-import math
 
 import attr
 import trio

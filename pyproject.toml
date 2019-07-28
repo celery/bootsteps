@@ -16,6 +16,7 @@ attrs = "=19.1"
 eliot = "=1.9"
 dependencies = { git = "https://github.com/dry-python/dependencies.git", branch = "master" }
 cached-property = "^1.5"
+systemd-python = {version = "^234.0", extras = ["systemd"]}
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.0"
@@ -32,6 +33,9 @@ pytest-xdist = "^1.29"
 multiprocessing_generator = "^0.2.0"
 hypothesis-networkx = "^0.2.0"
 pytest-ordering = "^0.6.0"
+
+[tool.poetry.extras]
+systemd = ["systemd-python"]
 
 [build-system]
 requires = ["poetry>=0.12"]

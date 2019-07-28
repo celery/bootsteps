@@ -4,8 +4,6 @@ from unittest.mock import call
 import pytest
 import trio
 from asynctest import CoroutineMock, MagicMock, Mock, NonCallableMock
-from bootsteps import AsyncStep, Blueprint, BlueprintContainer, Step
-from bootsteps.blueprint import BlueprintState, ExecutionOrder
 from eliot.testing import LoggedAction
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
@@ -17,6 +15,9 @@ from networkx import (
     is_directed_acyclic_graph,
     is_isomorphic,
 )
+
+from bootsteps import AsyncStep, Blueprint, BlueprintContainer, Step
+from bootsteps.blueprint import BlueprintState, ExecutionOrder
 from tests.mocks import TrioCoroutineMock
 
 
