@@ -153,15 +153,14 @@ class Blueprint:
             math.inf
         )
 
-    async def _change_blueprint_state(self, state: BlueprintState) -> None:
+    def _change_blueprint_state(self, state: BlueprintState) -> None:
         self.state = state
-        async with trio.open_nursery() as nursery:
-            nursery.start_soon(self.state_changes_send_channel.send, state)
+        self.state_changes_send_channel.send_nowait(state)
 
     async def start(self) -> None:
         """Execte the blueprint's steps start method."""
         with START_BLUEPRINT.as_task(name=self.name):
-            await self._change_blueprint_state(BlueprintState.RUNNING)
+            self._change_blueprint_state(BlueprintState.RUNNING)
 
             try:
                 for steps in self.execution_order:
@@ -182,14 +181,14 @@ class Blueprint:
                                         trio.run_sync_in_worker_thread, step.start
                                     )
             except Exception as e:
-                await self._change_blueprint_state((BlueprintState.FAILED, e))
+                self._change_blueprint_state((BlueprintState.FAILED, e))
             else:
-                await self._change_blueprint_state(BlueprintState.COMPLETED)
+                self._change_blueprint_state(BlueprintState.COMPLETED)
 
     async def stop(self) -> None:
         """Execte the blueprint's steps stop method."""
         with STOP_BLUEPRINT.as_task(name=self.name):
-            await self._change_blueprint_state(BlueprintState.TERMINATING)
+            self._change_blueprint_state(BlueprintState.TERMINATING)
 
             try:
                 for steps in reversed(self.execution_order):
@@ -203,9 +202,9 @@ class Blueprint:
                                         trio.run_sync_in_worker_thread, step.stop
                                     )
             except Exception as e:
-                await self._change_blueprint_state((BlueprintState.FAILED, e))
+                self._change_blueprint_state((BlueprintState.FAILED, e))
             else:
-                await self._change_blueprint_state(BlueprintState.TERMINATED)
+                self._change_blueprint_state(BlueprintState.TERMINATED)
 
     @cached_property
     def execution_order(self) -> typing.Iterator:
