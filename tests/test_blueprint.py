@@ -99,7 +99,7 @@ async def test_blueprint_start(bootsteps_graph, mock_execution_order_strategy_cl
                 == BlueprintState.COMPLETED
             )
 
-    mock_execution_order_strategy_class.assert_called_once_with(blueprint._steps.copy())
+    mock_execution_order_strategy_class.assert_called_once_with(blueprint._steps)
 
     assert_parallelized_steps_are_in_order(
         m.method_calls,
@@ -165,7 +165,7 @@ async def test_blueprint_start_failure(
             expected_exception,
         )
 
-    mock_execution_order_strategy_class.assert_called_once_with(blueprint._steps.copy())
+    mock_execution_order_strategy_class.assert_called_once_with(blueprint._steps)
 
     assert_parallelized_steps_are_in_order(
         m.method_calls, [[call.mock_step1(), call.mock_step2.start()]]
@@ -225,7 +225,7 @@ async def test_blueprint_stop(bootsteps_graph, mock_execution_order_strategy_cla
                 == BlueprintState.TERMINATED
             )
 
-    mock_execution_order_strategy_class.assert_called_once_with(blueprint._steps.copy())
+    mock_execution_order_strategy_class.assert_called_once_with(blueprint._steps)
 
     assert_parallelized_steps_are_in_order(
         m.method_calls, [[call.mock_step4.stop()], [call.mock_step2.stop()]]
@@ -292,7 +292,7 @@ async def test_blueprint_stop_failure(
             expected_exception,
         )
 
-    mock_execution_order_strategy_class.assert_called_once_with(blueprint._steps.copy())
+    mock_execution_order_strategy_class.assert_called_once_with(blueprint._steps)
 
     assert_parallelized_steps_are_in_order(m.method_calls, [[call.mock_step4.stop()]])
 

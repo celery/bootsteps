@@ -95,26 +95,30 @@ class ExecutionOrder(abc.Iterator):
     _steps_without_dependencies: typing.List[Step] = attr.ib(
         default=attr.Factory(list), init=False
     )
+    _current_steps_dependency_graph: DiGraph = attr.ib(default=attr.NOTHING, init=False)
 
     def __attrs_post_init__(self):
+        self._current_steps_dependency_graph = self._steps_dependency_graph
         self._steps_without_dependencies = self.steps_without_dependencies()
 
     def steps_without_dependencies(self):
         return {
             step
-            for step in self._steps_dependency_graph
-            if not any(self._steps_dependency_graph.neighbors(step))
+            for step in self._current_steps_dependency_graph
+            if not any(self._current_steps_dependency_graph.neighbors(step))
         }
 
     def mark_as_done(self, steps):
-        self._steps_dependency_graph.remove_nodes_from(steps)
+        self._current_steps_dependency_graph = self._current_steps_dependency_graph.subgraph(
+            self._current_steps_dependency_graph.nodes - steps
+        )
         self._execution_order.append(steps)
 
     def is_steps_dependency_graph_empty(self) -> bool:
-        return not self._steps_dependency_graph.order()
+        return not self._current_steps_dependency_graph.order()
 
     def __next__(self):
-        assert is_directed_acyclic_graph(self._steps_dependency_graph)
+        assert is_directed_acyclic_graph(self._current_steps_dependency_graph)
 
         # Continue looping while the graph is not empty.
         if self.is_steps_dependency_graph_empty():
@@ -206,7 +210,7 @@ class Blueprint:
     @cached_property
     def execution_order(self) -> typing.Iterator:
         """Initialize the execution order iterator."""
-        return self.execution_order_strategy_class(self._steps.copy())
+        return self.execution_order_strategy_class(self._steps)
 
     async def __aenter__(self) -> "Blueprint":
         """Start the blueprint."""
