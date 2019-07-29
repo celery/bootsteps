@@ -50,6 +50,24 @@ def test_mark_as_pending_execution(steps_dependency_graph, number_of_pending_nod
     assert [pending_steps] == execution_order._execution_order
 
 
+@given(
+    steps_dependency_graph=steps_dependency_graph_builder.filter(
+        lambda g: any(not any(g.neighbors(n)) for n in g.nodes)
+    )
+)
+@settings(suppress_health_check=(HealthCheck.too_slow, HealthCheck.filter_too_much))
+def test_steps_without_dependencies(steps_dependency_graph):
+    execution_order = ExecutionOrder(steps_dependency_graph)
+
+    steps_without_dependencies = execution_order.steps_without_dependencies()
+
+    assert steps_without_dependencies == {
+        step
+        for step in steps_dependency_graph
+        if not any(steps_dependency_graph.neighbors(step))
+    }
+
+
 @given(steps_dependency_graph=steps_dependency_graph_builder)
 @settings(
     suppress_health_check=(HealthCheck.too_slow, HealthCheck.filter_too_much),
