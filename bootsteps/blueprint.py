@@ -108,7 +108,7 @@ class ExecutionOrder(abc.Iterator):
             if not any(self._current_steps_dependency_graph.neighbors(step))
         }
 
-    def mark_as_done(self, steps):
+    def mark_as_pending_execution(self, steps):
         self._current_steps_dependency_graph = self._current_steps_dependency_graph.subgraph(
             self._current_steps_dependency_graph.nodes - steps
         )
@@ -126,7 +126,7 @@ class ExecutionOrder(abc.Iterator):
 
         # Execute all nodes without dependencies since they can now run.
         steps = self._steps_without_dependencies
-        self.mark_as_done(steps)
+        self.mark_as_pending_execution(steps)
 
         self._steps_without_dependencies = self.steps_without_dependencies()
 

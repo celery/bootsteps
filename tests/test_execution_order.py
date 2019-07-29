@@ -1,7 +1,7 @@
 import itertools
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, given, settings, strategies as st, assume
 from multiprocessing_generator import ParallelGenerator
 from networkx import all_topological_sorts
 
@@ -29,6 +29,27 @@ def test_initialization(bootsteps_graph):
     )
 
 
+@given(
+    steps_dependency_graph=steps_dependency_graph_builder,
+    number_of_pending_nodes=st.integers(min_value=0, max_value=9),
+)
+@settings(suppress_health_check=(HealthCheck.too_slow, HealthCheck.filter_too_much))
+def test_mark_as_pending_execution(steps_dependency_graph, number_of_pending_nodes):
+    assume(number_of_pending_nodes <= len(steps_dependency_graph.nodes))
+    execution_order = ExecutionOrder(steps_dependency_graph)
+    pending_steps = {
+        list(steps_dependency_graph.nodes)[i] for i in range(number_of_pending_nodes)
+    }
+
+    execution_order.mark_as_pending_execution(pending_steps)
+
+    assert all(
+        step not in execution_order._current_steps_dependency_graph.nodes
+        for step in pending_steps
+    )
+    assert [pending_steps] == execution_order._execution_order
+
+
 @given(steps_dependency_graph=steps_dependency_graph_builder)
 @settings(
     suppress_health_check=(HealthCheck.too_slow, HealthCheck.filter_too_much),
@@ -50,12 +71,6 @@ def test_execution_order(steps_dependency_graph, request):
         )
     )
     execution_order = ExecutionOrder(steps_dependency_graph)
-
-    for steps in execution_order:
-        assert all(
-            step not in execution_order._current_steps_dependency_graph.nodes
-            for step in steps
-        )
 
     actual = tuple(itertools.chain.from_iterable(execution_order))
 
