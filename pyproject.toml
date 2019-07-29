@@ -14,7 +14,7 @@ networkx = "=2.3"
 trio = "=0.11"
 attrs = "=19.1"
 eliot = "=1.9"
-dependencies = { git = "https://github.com/dry-python/dependencies.git", branch = "master" }
+dependencies = "0.16.dev0"
 cached-property = "^1.5"
 systemd-python = {version = "^234.0", extras = ["systemd"]}
 
