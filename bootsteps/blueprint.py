@@ -55,16 +55,6 @@ STOP_BLUEPRINT = ActionType(
     "bootsteps:blueprint:stop", [Field("name", str, "The name of the blueprint")], []
 )
 
-RESOLVING_BOOTSTEPS_EXECUTION_ORDER = ActionType(
-    "bootsteps:blueprint:resolving_bootsteps_execution_order",
-    [Field("name", str, "The name of the blueprint")],
-    [
-        Field("name", str, "The name of the blueprint"),
-        Field("bootsteps_execution_order", lambda steps: [repr(s) for s in steps]),
-        Field("parallelized_steps", int),
-    ],
-)
-
 NEXT_BOOTSTEPS = MessageType(
     "bootsteps:blueprint:next_bootsteps",
     [
@@ -165,6 +155,7 @@ class Blueprint:
 
             try:
                 for steps in self.execution_order:
+                    NEXT_BOOTSTEPS.log(name=self.name, next_bootsteps=steps)
                     async with trio.open_nursery() as nursery:
                         for step in steps:
                             if callable(step):
@@ -193,15 +184,17 @@ class Blueprint:
 
             try:
                 for steps in reversed(self.execution_order):
+                    stop_steps = [step for step in steps if hasattr(step, "stop")]
+                    if stop_steps:
+                        NEXT_BOOTSTEPS.log(name=self.name, next_bootsteps=stop_steps)
                     async with trio.open_nursery() as nursery:
-                        for step in steps:
-                            if hasattr(step, "stop"):
-                                if inspect.isawaitable(step.stop):
-                                    nursery.start_soon(step.stop)
-                                else:
-                                    nursery.start_soon(
-                                        trio.run_sync_in_worker_thread, step.stop
-                                    )
+                        for step in stop_steps:
+                            if inspect.isawaitable(step.stop):
+                                nursery.start_soon(step.stop)
+                            else:
+                                nursery.start_soon(
+                                    trio.run_sync_in_worker_thread, step.stop
+                                )
             except Exception as e:
                 self._change_blueprint_state((BlueprintState.FAILED, e))
             else:

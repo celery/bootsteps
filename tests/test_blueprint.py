@@ -1,6 +1,7 @@
 from unittest.mock import call
 
 import pytest
+from eliot.testing import LoggedMessage
 import trio
 from asynctest import MagicMock, Mock
 
@@ -52,7 +53,9 @@ def test_init(bootsteps_graph, mock_execution_order_strategy_class):
     assert b.execution_order_strategy_class == mock_execution_order_strategy_class
 
 
-async def test_blueprint_start(bootsteps_graph, mock_execution_order_strategy_class):
+async def test_blueprint_start(
+    bootsteps_graph, mock_execution_order_strategy_class, logger
+):
     mock_step1 = create_mock_step("step1")
     mock_step2 = create_start_stop_mock_step("step2")
     mock_step3 = create_mock_step("step3")
@@ -113,9 +116,27 @@ async def test_blueprint_start(bootsteps_graph, mock_execution_order_strategy_cl
     mock_step6.assert_awaited_once_with()
     mock_step4.start.assert_awaited_once_with()
 
+    messages = LoggedMessage.of_type(
+        logger.messages, "bootsteps:blueprint:next_bootsteps"
+    )
+    assert len(messages) == 3
+
+    assert messages[0].message["name"] == blueprint.name
+    assert messages[0].message["next_bootsteps"] == [m.mock_step1, m.mock_step2]
+
+    assert messages[1].message["name"] == blueprint.name
+    assert messages[1].message["next_bootsteps"] == [
+        m.mock_step3,
+        m.mock_step4,
+        m.mock_step5,
+    ]
+
+    assert messages[2].message["name"] == blueprint.name
+    assert messages[2].message["next_bootsteps"] == [m.mock_step6]
+
 
 async def test_blueprint_start_failure(
-    bootsteps_graph, mock_execution_order_strategy_class
+    bootsteps_graph, mock_execution_order_strategy_class, logger
 ):
     mock_step1 = create_mock_step("step1")
     mock_step1.side_effect = expected_exception = RuntimeError("Expected Failure")
@@ -175,8 +196,18 @@ async def test_blueprint_start_failure(
     mock_step5.assert_not_called()
     mock_step6.assert_not_called()
 
+    messages = LoggedMessage.of_type(
+        logger.messages, "bootsteps:blueprint:next_bootsteps"
+    )
+    assert len(messages) == 1
 
-async def test_blueprint_stop(bootsteps_graph, mock_execution_order_strategy_class):
+    assert messages[0].message["name"] == blueprint.name
+    assert messages[0].message["next_bootsteps"] == [m.mock_step1, m.mock_step2]
+
+
+async def test_blueprint_stop(
+    bootsteps_graph, mock_execution_order_strategy_class, logger
+):
     mock_step1 = create_mock_step("step1")
     mock_step2 = create_start_stop_mock_step("step2")
     mock_step3 = create_mock_step("step3")
@@ -238,9 +269,20 @@ async def test_blueprint_stop(bootsteps_graph, mock_execution_order_strategy_cla
     mock_step5.assert_not_called()
     mock_step6.assert_not_called()
 
+    messages = LoggedMessage.of_type(
+        logger.messages, "bootsteps:blueprint:next_bootsteps"
+    )
+    assert len(messages) == 2
+
+    assert messages[0].message["name"] == blueprint.name
+    assert messages[0].message["next_bootsteps"] == [m.mock_step4]
+
+    assert messages[1].message["name"] == blueprint.name
+    assert messages[1].message["next_bootsteps"] == [m.mock_step2]
+
 
 async def test_blueprint_stop_failure(
-    bootsteps_graph, mock_execution_order_strategy_class
+    bootsteps_graph, mock_execution_order_strategy_class, logger
 ):
     mock_step1 = create_mock_step("step1")
     mock_step2 = create_start_stop_mock_step("step2")
@@ -301,6 +343,14 @@ async def test_blueprint_stop_failure(
     mock_step3.assert_not_called()
     mock_step5.assert_not_called()
     mock_step6.assert_not_called()
+
+    messages = LoggedMessage.of_type(
+        logger.messages, "bootsteps:blueprint:next_bootsteps"
+    )
+    assert len(messages) == 1, messages
+
+    assert messages[0].message["name"] == blueprint.name
+    assert messages[0].message["next_bootsteps"] == [m.mock_step4]
 
 
 async def test_blueprint_async_context_manager(
