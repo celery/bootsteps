@@ -152,6 +152,7 @@ class Blueprint:
         self.state_changes_send_channel, self.state_changes_receive_channel = trio.open_memory_channel(
             math.inf
         )
+        self._nursery = self._nursery_manager = None
 
     def _change_blueprint_state(self, state: BlueprintState) -> None:
         self.state = state
@@ -213,15 +214,17 @@ class Blueprint:
 
     async def __aenter__(self) -> "Blueprint":
         """Start the blueprint."""
-        async with trio.open_nursery() as nursery:
-            nursery.start_soon(self.start)
+        self._nursery_manager = trio.open_nursery()
+        self._nursery = await self._nursery_manager.__aenter__()
+        self._nursery.start_soon(self.start)
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> "Blueprint":
         """Stop the blueprint."""
-        async with trio.open_nursery() as nursery:
-            nursery.start_soon(self.stop)
-        return self
+        try:
+            self._nursery.start_soon(self.stop)
+        finally:
+            await self._nursery_manager.__aexit__(exc_type, exc, tb)
 
 
 class BlueprintContainer(Injector):
