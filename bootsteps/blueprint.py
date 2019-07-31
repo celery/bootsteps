@@ -174,6 +174,7 @@ class Blueprint:
                                     )
             except Exception as e:
                 self._change_blueprint_state((BlueprintState.FAILED, e))
+                raise
             else:
                 self._change_blueprint_state(BlueprintState.COMPLETED)
 
@@ -197,6 +198,7 @@ class Blueprint:
                                 )
             except Exception as e:
                 self._change_blueprint_state((BlueprintState.FAILED, e))
+                raise
             else:
                 self._change_blueprint_state(BlueprintState.TERMINATED)
 

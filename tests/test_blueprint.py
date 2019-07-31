@@ -9,6 +9,7 @@ from bootsteps import AsyncStep, Blueprint
 from bootsteps.blueprint import BlueprintState, ExecutionOrder
 from tests.assertions import (
     assert_log_message_field_equals,
+    assert_logged_action_failed,
     assert_logged_action_succeeded,
 )
 from tests.mocks import TrioCoroutineMock, create_mock_step, create_start_stop_mock_step
@@ -185,8 +186,9 @@ async def test_blueprint_start_failure(
         execution_order_strategy_class=mock_execution_order_strategy_class,
     )
 
-    async with trio.open_nursery() as nursery:
-        nursery.start_soon(blueprint.start)
+    with pytest.raises(RuntimeError):
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(blueprint.start)
 
     with trio.fail_after(1):
         assert (
@@ -214,8 +216,7 @@ async def test_blueprint_start_failure(
     assert len(logged_actions) == 1
     logged_action = logged_actions[0]
     assert_log_message_field_equals(logged_action.start_message, "name", blueprint.name)
-    # TODO: Figure out how to fail the task when an action fails
-    # assert_logged_action_failed(logged_action)
+    assert_logged_action_failed(logged_action)
 
     messages = LoggedMessage.of_type(
         logger.messages, "bootsteps:blueprint:next_bootsteps"
@@ -354,8 +355,9 @@ async def test_blueprint_stop_failure(
         execution_order_strategy_class=mock_execution_order_strategy_class,
     )
 
-    async with trio.open_nursery() as nursery:
-        nursery.start_soon(blueprint.stop)
+    with pytest.raises(RuntimeError):
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(blueprint.stop)
 
     with trio.fail_after(1):
         assert (
@@ -383,8 +385,7 @@ async def test_blueprint_stop_failure(
     assert len(logged_actions) == 1
     logged_action = logged_actions[0]
     assert_log_message_field_equals(logged_action.start_message, "name", blueprint.name)
-    # TODO: Figure out how to fail the task when an action fails
-    # assert_logged_action_failed(logged_action)
+    assert_logged_action_failed(logged_action)
 
     messages = LoggedMessage.of_type(
         logger.messages, "bootsteps:blueprint:next_bootsteps"
