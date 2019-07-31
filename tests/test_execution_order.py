@@ -1,7 +1,8 @@
 import itertools
 
 import pytest
-from hypothesis import HealthCheck, given, settings, strategies as st, assume
+from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import strategies as st
 from multiprocessing_generator import ParallelGenerator
 from networkx import all_topological_sorts
 
