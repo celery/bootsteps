@@ -1,12 +1,16 @@
 from unittest.mock import call
 
 import pytest
-from eliot.testing import LoggedMessage
 import trio
 from asynctest import MagicMock, Mock
+from eliot.testing import LoggedAction, LoggedMessage
 
 from bootsteps import AsyncStep, Blueprint
 from bootsteps.blueprint import BlueprintState, ExecutionOrder
+from tests.assertions import (
+    assert_log_message_field_equals,
+    assert_logged_action_succeeded,
+)
 from tests.mocks import TrioCoroutineMock, create_mock_step, create_start_stop_mock_step
 
 
@@ -116,23 +120,33 @@ async def test_blueprint_start(
     mock_step6.assert_awaited_once_with()
     mock_step4.start.assert_awaited_once_with()
 
+    logged_actions = LoggedAction.of_type(logger.messages, "bootsteps:blueprint:start")
+    assert len(logged_actions) == 1
+    logged_action = logged_actions[0]
+    assert_log_message_field_equals(logged_action.start_message, "name", blueprint.name)
+    assert_logged_action_succeeded(logged_action)
+
     messages = LoggedMessage.of_type(
         logger.messages, "bootsteps:blueprint:next_bootsteps"
     )
     assert len(messages) == 3
 
-    assert messages[0].message["name"] == blueprint.name
-    assert messages[0].message["next_bootsteps"] == [m.mock_step1, m.mock_step2]
+    assert_log_message_field_equals(messages[0].message, "name", blueprint.name)
+    assert_log_message_field_equals(
+        messages[0].message, "next_bootsteps", [m.mock_step1, m.mock_step2]
+    )
 
-    assert messages[1].message["name"] == blueprint.name
-    assert messages[1].message["next_bootsteps"] == [
-        m.mock_step3,
-        m.mock_step4,
-        m.mock_step5,
-    ]
+    assert_log_message_field_equals(messages[1].message, "name", blueprint.name)
+    assert_log_message_field_equals(
+        messages[1].message,
+        "next_bootsteps",
+        [m.mock_step3, m.mock_step4, m.mock_step5],
+    )
 
-    assert messages[2].message["name"] == blueprint.name
-    assert messages[2].message["next_bootsteps"] == [m.mock_step6]
+    assert_log_message_field_equals(messages[2].message, "name", blueprint.name)
+    assert_log_message_field_equals(
+        messages[2].message, "next_bootsteps", [m.mock_step6]
+    )
 
 
 async def test_blueprint_start_failure(
@@ -196,13 +210,22 @@ async def test_blueprint_start_failure(
     mock_step5.assert_not_called()
     mock_step6.assert_not_called()
 
+    logged_actions = LoggedAction.of_type(logger.messages, "bootsteps:blueprint:start")
+    assert len(logged_actions) == 1
+    logged_action = logged_actions[0]
+    assert_log_message_field_equals(logged_action.start_message, "name", blueprint.name)
+    # TODO: Figure out how to fail the task when an action fails
+    # assert_logged_action_failed(logged_action)
+
     messages = LoggedMessage.of_type(
         logger.messages, "bootsteps:blueprint:next_bootsteps"
     )
     assert len(messages) == 1
 
-    assert messages[0].message["name"] == blueprint.name
-    assert messages[0].message["next_bootsteps"] == [m.mock_step1, m.mock_step2]
+    assert_log_message_field_equals(messages[0].message, "name", blueprint.name)
+    assert_log_message_field_equals(
+        messages[0].message, "next_bootsteps", [m.mock_step1, m.mock_step2]
+    )
 
 
 async def test_blueprint_stop(
@@ -269,16 +292,28 @@ async def test_blueprint_stop(
     mock_step5.assert_not_called()
     mock_step6.assert_not_called()
 
+    logged_actions = LoggedAction.of_type(logger.messages, "bootsteps:blueprint:stop")
+    assert len(logged_actions) == 1
+    logged_action = logged_actions[0]
+    assert_log_message_field_equals(logged_action.start_message, "name", blueprint.name)
+    assert_logged_action_succeeded(logged_action)
+
     messages = LoggedMessage.of_type(
         logger.messages, "bootsteps:blueprint:next_bootsteps"
     )
     assert len(messages) == 2
 
-    assert messages[0].message["name"] == blueprint.name
-    assert messages[0].message["next_bootsteps"] == [m.mock_step4]
+    assert_log_message_field_equals(messages[0].message, "name", blueprint.name)
+    assert_log_message_field_equals(
+        messages[0].message, "next_bootsteps", [m.mock_step4]
+    )
 
-    assert messages[1].message["name"] == blueprint.name
-    assert messages[1].message["next_bootsteps"] == [m.mock_step2]
+    assert_log_message_field_equals(messages[1].message, "name", blueprint.name)
+    assert_log_message_field_equals(
+        messages[1].message,
+        "next_bootsteps",
+        [m.mock_step2],
+    )
 
 
 async def test_blueprint_stop_failure(
@@ -344,13 +379,22 @@ async def test_blueprint_stop_failure(
     mock_step5.assert_not_called()
     mock_step6.assert_not_called()
 
+    logged_actions = LoggedAction.of_type(logger.messages, "bootsteps:blueprint:stop")
+    assert len(logged_actions) == 1
+    logged_action = logged_actions[0]
+    assert_log_message_field_equals(logged_action.start_message, "name", blueprint.name)
+    # TODO: Figure out how to fail the task when an action fails
+    # assert_logged_action_failed(logged_action)
+
     messages = LoggedMessage.of_type(
         logger.messages, "bootsteps:blueprint:next_bootsteps"
     )
     assert len(messages) == 1, messages
 
-    assert messages[0].message["name"] == blueprint.name
-    assert messages[0].message["next_bootsteps"] == [m.mock_step4]
+    assert_log_message_field_equals(messages[0].message, "name", blueprint.name)
+    assert_log_message_field_equals(
+        messages[0].message, "next_bootsteps", [m.mock_step4]
+    )
 
 
 async def test_blueprint_async_context_manager(
