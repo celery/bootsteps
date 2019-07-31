@@ -63,6 +63,12 @@ NEXT_BOOTSTEPS = MessageType(
     ],
 )
 
+EXECUTING_BOOTSTEP = ActionType(
+    "bootsteps:blueprint:executing_bootstep",
+    [Field("bootstep", repr, "The name of the step")],
+    [],
+)
+
 
 class BlueprintState(Enum):
     """An enum represeting the different lifecycle stages of a Blueprint."""
@@ -126,6 +132,23 @@ class ExecutionOrder(abc.Iterator):
         return iter(self._execution_order) if self._execution_order else self
 
 
+def _apply_step(nursery, step):
+    if inspect.isawaitable(step):
+
+        async def _inner():
+            with EXECUTING_BOOTSTEP(bootstep=step):
+                await step()
+
+        nursery.start_soon(_inner)
+    else:
+
+        def _inner():
+            with EXECUTING_BOOTSTEP(bootstep=step):
+                step()
+
+        nursery.start_soon(trio.run_sync_in_worker_thread, _inner)
+
+
 @attr.s(auto_attribs=True, cmp=False)
 class Blueprint:
     """A directed acyclic graph of Bootsteps."""
@@ -159,19 +182,9 @@ class Blueprint:
                     async with trio.open_nursery() as nursery:
                         for step in steps:
                             if callable(step):
-                                if inspect.isawaitable(step):
-                                    nursery.start_soon(step)
-                                else:
-                                    nursery.start_soon(
-                                        trio.run_sync_in_worker_thread, step
-                                    )
+                                _apply_step(nursery, step)
                             else:
-                                if inspect.isawaitable(step.start):
-                                    nursery.start_soon(step.start)
-                                else:
-                                    nursery.start_soon(
-                                        trio.run_sync_in_worker_thread, step.start
-                                    )
+                                _apply_step(nursery, step.start)
             except Exception as e:
                 self._change_blueprint_state((BlueprintState.FAILED, e))
                 raise
@@ -188,14 +201,9 @@ class Blueprint:
                     stop_steps = [step for step in steps if hasattr(step, "stop")]
                     if stop_steps:
                         NEXT_BOOTSTEPS.log(name=self.name, next_bootsteps=stop_steps)
-                    async with trio.open_nursery() as nursery:
-                        for step in stop_steps:
-                            if inspect.isawaitable(step.stop):
-                                nursery.start_soon(step.stop)
-                            else:
-                                nursery.start_soon(
-                                    trio.run_sync_in_worker_thread, step.stop
-                                )
+                        async with trio.open_nursery() as nursery:
+                            for step in stop_steps:
+                                _apply_step(nursery, step.stop)
             except Exception as e:
                 self._change_blueprint_state((BlueprintState.FAILED, e))
                 raise
