@@ -146,7 +146,7 @@ def _apply_step(nursery, step):
             with EXECUTING_BOOTSTEP(bootstep=step):
                 step()
 
-        nursery.start_soon(trio.run_sync_in_worker_thread, _inner)
+        nursery.start_soon(trio.to_thread.run_sync, _inner)
 
 
 @attr.s(auto_attribs=True, cmp=False)
